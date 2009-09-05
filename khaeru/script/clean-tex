@@ -1,0 +1,2 @@
+#!/bin/sh
+rubber --clean --texpath $TEXINPUTS *.tex
