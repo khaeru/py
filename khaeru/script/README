@@ -1,3 +1,21 @@
-The recommended way to use these scripts:
+To use these scripts:
 
+$ cd ~
+$ bzr branch lp:~khaeru/+junk/scripts .bin
 
+In ~/.profile, replace:
+
+  # set PATH so it includes user's private bin if it exists
+  if [ -d "$HOME/bin" ] ; then
+    PATH="$HOME/bin:$PATH"
+  fi
+
+...with:
+
+  # set PATH so it includes user's private bin if it exists
+  if [ -d "$HOME/.bin" ] ; then
+    PATH="$HOME/.bin:$PATH"
+  fi
+
+This hides the directory ~/.bin from most views of your home directory,
+but leaves the scripts accessible.
