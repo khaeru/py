@@ -1,7 +1,7 @@
 To use these scripts:
 
 $ cd ~
-$ bzr branch lp:~khaeru/+junk/scripts .bin
+$ bzr branch lp:~khaeru/+junk/scripts .local/bin
 
 In ~/.profile, replace:
 
@@ -13,9 +13,17 @@ In ~/.profile, replace:
 ...with:
 
   # set PATH so it includes user's private bin if it exists
-  if [ -d "$HOME/.bin" ] ; then
-    PATH="$HOME/.bin:$PATH"
+  if [ -d "$HOME/.local/bin" ] ; then
+    PATH="$HOME/.local/bin:$PATH"
   fi
 
-This hides the directory ~/.bin from most views of your home directory,
-but leaves the scripts accessible.
+This hides the directory containing the scripts from most views
+of your home directory, but leaves the scripts accessible.
+
+You can also do the following to ease updates:
+
+$ bzr bind lp:~khaeru/+junk/scripts .local/bin
+
+... after which the code may be updated with:
+
+$ bzr update .local/bin
