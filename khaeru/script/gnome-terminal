@@ -1,5 +1,9 @@
 #!/bin/sh
 # Find and raise an existing gnome-terminal window. Otherwise, open a new one.
+if [ $# -ne 0 ]; then
+  /usr/bin/gnome-terminal $*
+  exit 0
+fi
 GTPID=`ps --user $USER -o pid:1,command | grep -E "^[0-9]+ (/usr/bin/)?gnome-terminal" | cut -d" " -f 1`
 if [ -n "$GTPID" ]; then
   GTWIN=`wmctrl -lp | grep " $GTPID " | cut -d" " -f 1`
