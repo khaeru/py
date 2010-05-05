@@ -1,0 +1,50 @@
+#!/bin/sh
+
+start_alarm () {
+  # settings
+  MPD_HOST=d-ureahk@localhost
+  RAMP_TIME=20
+
+  # retrieve current PulseAudio volume
+  VOLUME=`pacmd dump | grep set-sink-volume | cut -d " " -f 3`
+  # steps from zero to target volume
+  VOLSTEP=$((VOLUME / RAMP_TIME))
+
+  # mute output
+  pacmd set-sink-volume 0 0x0 >/dev/null
+
+  # start playing
+  mpc --host $MPD_HOST --no-status play
+
+  # gradually increase volume over $RAMP_TIME seconds
+  for i in `seq 0 $VOLSTEP $VOLUME`
+  do
+    echo $i
+    pacmd set-sink-volume 0 `printf "0x%X" $i` >/dev/null
+    sleep 1
+  done
+}
+
+
+set_alarm () {
+  # name of the current script
+  SCRIPT=$(which $0)
+  # sed command to change the time of the alarm
+  NEW_LINE="$2 $1 \* \* \* $SCRIPT"
+  SED_CMD="s@^.*${SCRIPT}\$@${NEW_LINE}@"
+  # edit the crontab
+  crontab -l | sed --expression="${SED_CMD}" | crontab -
+}
+
+
+case $# in
+0)
+  start_alarm
+  ;;
+2)
+  set_alarm $1 $2
+  ;;
+*)
+  echo $0 ": invalid number of options."
+  ;;
+esac
