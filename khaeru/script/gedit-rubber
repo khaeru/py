@@ -1,0 +1,22 @@
+#!/bin/sh
+# [Gedit Tool]
+# Comment=rubber
+# Name=Rubber
+# Shortcut=<Control><Alt>1
+# Languages=latex
+# Applicability=all
+# Output=output-panel
+# Input=nothing
+# Save-files=document
+
+TEXINPUTS=~/Projects/latex-templates
+
+RESULT_URI=`echo $GEDIT_CURRENT_DOCUMENT_URI | sed "s/.tex/.pdf/"`
+RESULT_PATH=`echo $GEDIT_CURRENT_DOCUMENT_PATH | sed "s/.tex/.pdf/"`
+
+rubber -dfs -n -1 -W all --inplace --texpath=$TEXINPUTS "$GEDIT_CURRENT_DOCUMENT_PATH"
+if [ -x "$RESULT_URI.gz" ]; then
+  gnome-open "$RESULT_URI.gz"
+else
+  gnome-open "$RESULT_URI"
+fi
