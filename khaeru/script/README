@@ -1,29 +1,21 @@
+A variety of Bash and Python scripts
+  Copyright © 2010 Paul Kishimoto <mail@paul.kishimoto.name>
+  Made available under the GPLv3 (http://www.gnu.org/licenses/gpl-3.0.html)
+
 To use these scripts:
+  $ cd ~
+  $ bzr branch lp:~khaeru/+junk/scripts .local/bin
 
-$ cd ~
-$ bzr branch lp:~khaeru/+junk/scripts .local/bin
-
-In ~/.profile, replace:
-
-  # set PATH so it includes user's private bin if it exists
+In ~/.profile, replace the lines
   if [ -d "$HOME/bin" ] ; then
     PATH="$HOME/bin:$PATH"
-  fi
-
 ...with:
-
-  # set PATH so it includes user's private bin if it exists
   if [ -d "$HOME/.local/bin" ] ; then
     PATH="$HOME/.local/bin:$PATH"
-  fi
-
 This hides the directory containing the scripts from most views
 of your home directory, but leaves the scripts accessible.
 
 You can also do the following to ease updates:
-
-$ bzr bind lp:~khaeru/+junk/scripts .local/bin
-
-... after which the code may be updated with:
-
-$ bzr update .local/bin
+  $ bzr bind lp:~khaeru/+junk/scripts .local/bin
+After which the code may be updated with:
+  $ bzr update .local/bin

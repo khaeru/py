@@ -1,4 +1,26 @@
 #!/bin/sh
+# MPD alarm clock.
+#   Copyright © 2010 Paul Kishimoto <mail@paul.kishimoto.name>
+#   Made available under the GPLv3 (http://www.gnu.org/licenses/gpl-3.0.html)
+#
+# Requires the Ubuntu packages 'mpc' and 'pulseaudio-utils'.
+#
+# To use, edit MPD_HOST to indicate which MPD instance to control. See the
+# 'mpc' manpage for details. Then run this script with two arguments: an hour
+# (0-23) and minute (0-59). For example:
+#   $ rise-and-shine 16 30
+# ...sets the alarm (e.g. for 4:30 PM).
+#
+# The script adds itself to your crontab. At the specified time, it lowers the
+# volume of your default PulseAudio output to mute. It begins playing whatever
+# is in your MPD playlist. Then, it slowly raises the volume back to the
+# original level.
+#
+# You can set the RAMP_TIME (in seconds) for a more abrupt or gradual wakeup.
+#
+# Because of the format of crontab entries, you can also disable the alarm
+# using:
+#  $ rise-and-shire 0 \#0
 
 start_alarm () {
   # settings

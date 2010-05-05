@@ -1,4 +1,11 @@
 #!/usr/bin/env python
+""" Generate phoenetic passwords
+
+Edit the variables 'length', 'count' and 'show_passwords' below to your liking.
+
+Running this script will display phoenetic representations of some
+random passwords.
+"""
 import curses
 import random
 
