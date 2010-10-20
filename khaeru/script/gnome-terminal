@@ -22,7 +22,7 @@ if [ -n "$GTPID" ]; then
   GTWIN=`wmctrl -lp | grep " $GTPID " | cut -d" " -f 1`
 fi
 if [ -n "$GTWIN" ]; then
-  wmctrl -iR $GTWIN
+  wmctrl -iR $GTWIN -b add,fullscreen
 else
   exec /usr/bin/gnome-terminal
 fi

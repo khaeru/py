@@ -24,25 +24,33 @@
 
 start_alarm () {
   # settings
-  MPD_HOST=d-ureahk@localhost
-  RAMP_TIME=20
+  MPD_HOST=HusbwomanGNT@192.168.10.2
+  RAMP_TIME=30
+  MPC="mpc --quiet --host $MPD_HOST"
 
-  # retrieve current PulseAudio volume
-  VOLUME=`pacmd dump | grep set-sink-volume | cut -d " " -f 3`
+  ## retrieve current PulseAudio volume
+  #VOLUME=`pacmd dump | grep set-sink-volume | cut -d " " -f 3`
+  # retrieve current MPD volume
+  VOLUME=`$MPC volume | sed "s/volume: \([0-9]*\)%/\\1/"`
   # steps from zero to target volume
   VOLSTEP=$((VOLUME / RAMP_TIME))
 
-  # mute output
-  pacmd set-sink-volume 0 0x0 >/dev/null
+  ## mute PulseAudio output
+  #pacmd set-sink-volume 0 0x0 >/dev/null
+  # mute MPD
+  $MPC volume 0
 
   # start playing
-  mpc --host $MPD_HOST --no-status play
+  $MPC play
 
-  # gradually increase volume over $RAMP_TIME seconds
+  # gradually increase volume over $RAMP_TIME seconds...
   for i in `seq 0 $VOLSTEP $VOLUME`
   do
     echo $i
-    pacmd set-sink-volume 0 `printf "0x%X" $i` >/dev/null
+    ## ...using PulseAudio.
+    #pacmd set-sink-volume 0 `printf "0x%X" $i` >/dev/null
+    # ...using MPD.
+    $MPC volume $i
     sleep 1
   done
 }
