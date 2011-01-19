@@ -13,7 +13,7 @@
 #
 # The script adds itself to your crontab. At the specified time, it lowers the
 # volume of your default PulseAudio output to mute. It begins playing whatever
-# is in your MPD playlist. Then, it slowly raises the volume back to the
+# is in your MPD playlist. Then, it slowly raises the volume back to its
 # original level.
 #
 # You can set the RAMP_TIME (in seconds) for a more abrupt or gradual wakeup.
@@ -24,21 +24,22 @@
 
 start_alarm () {
   # settings
-  MPD_HOST=HusbwomanGNT@192.168.10.2
-  RAMP_TIME=30
+  MPD_HOST=HusbwomanGNT@khaeru-storage
+  RAMP_TIME=10
   MPC="mpc --quiet --host $MPD_HOST"
 
-  ## retrieve current PulseAudio volume
-  #VOLUME=`pacmd dump | grep set-sink-volume | cut -d " " -f 3`
-  # retrieve current MPD volume
-  VOLUME=`$MPC volume | sed "s/volume: \([0-9]*\)%/\\1/"`
+  # retrieve current PulseAudio volume
+  PA_OUTPUT=`pacmd dump | grep set-default-sink | cut -d " " -f 2`
+  VOLUME=`pacmd dump | grep "set-sink-volume $PA_OUTPUT" | cut -d " " -f 3`
+  ## retrieve current MPD volume
+  #VOLUME=`$MPC volume | sed "s/volume: \([0-9]*\)%/\\1/"`
   # steps from zero to target volume
   VOLSTEP=$((VOLUME / RAMP_TIME))
 
-  ## mute PulseAudio output
-  #pacmd set-sink-volume 0 0x0 >/dev/null
-  # mute MPD
-  $MPC volume 0
+  # mute PulseAudio output
+  pacmd set-sink-volume 0 0x0 >/dev/null
+  ## mute MPD
+  #$MPC volume 0
 
   # start playing
   $MPC play
@@ -46,11 +47,11 @@ start_alarm () {
   # gradually increase volume over $RAMP_TIME seconds...
   for i in `seq 0 $VOLSTEP $VOLUME`
   do
-    echo $i
-    ## ...using PulseAudio.
-    #pacmd set-sink-volume 0 `printf "0x%X" $i` >/dev/null
-    # ...using MPD.
-    $MPC volume $i
+    #echo $i
+    # ...using PulseAudio.
+    pacmd set-sink-volume 0 `printf "0x%X" $i` >/dev/null
+    ## ...using MPD.
+    #$MPC volume $i
     sleep 1
   done
 }
