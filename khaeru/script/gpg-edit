@@ -51,7 +51,7 @@ if [ -e "$FILE" ]; then
   done
 else
   # otherwise assume we're creating a new (empty) file
-  touch "$TEMPDIR/$BN.$$" "$TEMPDIR/data.txt"
+  touch "$TEMPDIR/$BN.$$"
 fi
 
 # save modification time of the file to be edited
@@ -60,7 +60,7 @@ MTIME=`stat -c %Y "$TEMPDIR/$BN.$$"`
 # edit the unencrypted data
 sensible-editor "$TEMPDIR/$BN.$$"
 
-# if the was modified, re-encrypt and overwrite the original
+# if the file was modified, re-encrypt and overwrite the original
 if [ "$MTIME" != `stat -c %Y "$TEMPDIR/$BN.$$"` ]; then
   while ! gpg $ENCRYPT_FLAGS -a <"$TEMPDIR/$BN.$$" >"$TEMPDIR/$BN"; do
     echo "Uh, please try again..."
