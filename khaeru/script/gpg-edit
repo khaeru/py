@@ -1,0 +1,75 @@
+#!/bin/sh
+# Authors:
+#   2011-08-01 Bjarni Rúnar Einarsson <bre@klaki.net>
+#   2011-10-21 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>     
+#
+# The original version, with more explanatory comments, can be found at:
+# http://bre.klaki.net/programs/gpg-edit.txt
+# 
+# Usage: gpg-edit FILE [RECIPIENT]
+#
+# gpg-edit allows a user to edit a file encrypted with GnuPG. The following
+# steps are taken:
+#
+# 1. A temporary copy is made of the file to be edited with the owner set to
+#    the invoking user.
+# 2. The Debian 'sensible-editor' is run to edit the temporary file. See also
+#    sensible-editor(1) and select-editor(1).
+# 3. If it has been modified, the temporary file is re-encrypted with GnuPG and
+#    returned to its original location and the temporary file is removed.
+#
+
+# First and only argument is (or should be) the file to edit.
+FILE=$1
+if [ "$FILE" = "" ]; then
+    echo "Usage: gpg-edit filename"
+    exit 1
+fi
+if [ "$2" = "" ]; then
+  # encrypt to self to avoid tedious passphrase retyping
+  ENCRYPT_FLAGS="-e --default-recipient-self"
+  # comment out the above and uncomment the following to specify per-file
+  # passphrases:
+  #ENCRYPT_FLAGS="-c"
+else
+  ENCRYPT_FLAGS="-e -r $2"
+fi
+
+# use a temporary directory in the user's home directory, instead of in /tmp or
+# /var/tmp
+TEMPDIR=~/.cache/gpg-edit
+umask 077
+mkdir -p $TEMPDIR || exit 1
+
+# strip directories for temporary file names
+BN=`basename $FILE`
+# if the file exists, try to decrypt it
+if [ -e "$FILE" ]; then
+  while ! gpg <"$FILE" >"$TEMPDIR/$BN.$$"; do
+    echo "Uh"
+  done
+else
+  # otherwise assume we're creating a new (empty) file
+  touch "$TEMPDIR/$BN.$$" "$TEMPDIR/data.txt"
+fi
+
+# save modification time of the file to be edited
+MTIME=`stat -c %Y "$TEMPDIR/$BN.$$"`
+
+# edit the unencrypted data
+sensible-editor "$TEMPDIR/$BN.$$"
+
+# if the was modified, re-encrypt and overwrite the original
+if [ "$MTIME" != `stat -c %Y "$TEMPDIR/$BN.$$"` ]; then
+  while ! gpg $ENCRYPT_FLAGS -a <"$TEMPDIR/$BN.$$" >"$TEMPDIR/$BN"; do
+    echo "Uh, please try again..."
+  done 
+  cat "$TEMPDIR/$BN" >"$FILE"
+else
+  echo "$0: $FILE unchanged"
+fi
+
+# shred and remove the temporary, unencrypted file
+shred -u "$TEMPDIR/$BN.$$"
+# remove the temporary output; probably don't need to shred, as it's encrypted
+rm -f "$TEMPDIR/$BN"
