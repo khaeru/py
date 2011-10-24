@@ -1,7 +1,8 @@
 #!/bin/sh
-# MPD alarm clock.
-#   Copyright © 2010 Paul Kishimoto <mail@paul.kishimoto.name>
-#   Made available under the GPLv3 (http://www.gnu.org/licenses/gpl-3.0.html)
+# Alarm clock using Music Player Daemon (MPD)
+#
+# Copyright © 2010-2011 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+# Made available under the GPLv3 (http://www.gnu.org/licenses/gpl-3.0.html)
 #
 # Requires the Ubuntu packages 'mpc' and 'pulseaudio-utils'.
 #

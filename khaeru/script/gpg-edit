@@ -1,11 +1,12 @@
 #!/bin/sh
-# Authors:
-#   2011-08-01 Bjarni Rúnar Einarsson <bre@klaki.net>
-#   2011-10-21 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>     
+# Wrapper for shell editing of GnuPG-encrypted files.
 #
-# The original version, with more explanatory comments, can be found at:
-# http://bre.klaki.net/programs/gpg-edit.txt
-# 
+# Authors:
+# 2011-08-01 Bjarni Rúnar Einarsson <bre@klaki.net>
+#  - The original version, with more explanatory comments, can be found at:
+#    http://bre.klaki.net/programs/gpg-edit.txt. No license = public domain!
+# 2011-10-21 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+#
 # Usage: gpg-edit FILE [RECIPIENT]
 #
 # gpg-edit allows a user to edit a file encrypted with GnuPG. The following
