@@ -21,40 +21,56 @@
 #
 # Because of the format of crontab entries, you can also disable the alarm
 # using:
-#  $ rise-and-shire 0 \#0
+#  $ rise-and-shine 0 \#0
 
 start_alarm () {
   # settings
-  MPD_HOST=HusbwomanGNT@khaeru-storage
-  RAMP_TIME=10
-  MPC="mpc --quiet --host $MPD_HOST"
+  MPD_HOST_MAC="--broadcast 10.42.44.255 00:0f:ea:60:15:38"
+  MPD_HOST=192.168.1.2
+  MPD_PASS=1blue6banana5
+  RAMP_TIME=30
+  MPC="mpc --quiet --host $MPD_PASS@$MPD_HOST"
 
-  # retrieve current PulseAudio volume
-  PA_OUTPUT=`pacmd dump | grep set-default-sink | cut -d " " -f 2`
-  VOLUME=`pacmd dump | grep "set-sink-volume $PA_OUTPUT" | cut -d " " -f 3`
-  ## retrieve current MPD volume
-  #VOLUME=`$MPC volume | sed "s/volume: \([0-9]*\)%/\\1/"`
-  # steps from zero to target volume
-  VOLSTEP=$((VOLUME / RAMP_TIME))
+  ## retrieve current PulseAudio volume
+  #VOLUME=`pacmd dump | grep set-sink-volume | head -n 1 | cut -d " " -f 3`
+  ## mute PulseAudio output
+  #pacmd set-sink-volume 0 0x0 >/dev/null
 
-  # mute PulseAudio output
-  pacmd set-sink-volume 0 0x0 >/dev/null
-  ## mute MPD
-  #$MPC volume 0
+  ## optional: wake the target
+  #powerwake $MPD_HOST_MAC
+  #sleep 90
 
   # start playing
   $MPC play
+  # retrieve current MPD volume
+  VOLUME="0"
+  VOLSTEP="0"
+  while [ $VOLSTEP -eq 0 ]; do
+    VOLUME=$($MPC volume | sed 's@volume:[ ]*\([^% ]*\).*@\1@')
+    if [ "$VOLUME" != "n/a" ]; then
+      # steps from zero to target volume
+      if [ $VOLUME -ge $RAMP_TIME ]; then
+        VOLSTEP=$((VOLUME / RAMP_TIME))
+      else
+        # when RAMP_TIME < VOLUME integer division yields 0
+        VOLSTEP="1"
+      fi
+    fi
+  done
 
-  # gradually increase volume over $RAMP_TIME seconds...
-  for i in `seq 0 $VOLSTEP $VOLUME`
+  # mute MPD directly
+  $MPC volume 0
+
+  # gradually increase volume over $RAMP_TIME seconds…
+  for i in $(seq 0 $VOLSTEP $VOLUME)
   do
-    #echo $i
-    # ...using PulseAudio.
-    pacmd set-sink-volume 0 `printf "0x%X" $i` >/dev/null
-    ## ...using MPD.
-    #$MPC volume $i
+    ## …using PulseAudio.
+    #pacmd set-sink-volume 0 `printf "0x%X" $i` >/dev/null
+    # …using MPD.
+    $MPC volume $i
     sleep 1
   done
+  exit 0
 }
 
 
@@ -66,6 +82,24 @@ set_alarm () {
   SED_CMD="s@^.*${SCRIPT}\$@${NEW_LINE}@"
   # edit the crontab
   crontab -l | sed --expression="${SED_CMD}" | crontab -
+  exit 0
+}
+
+
+set_alarm_interactive () {
+  if [ -z "$DISPLAY" ]; then
+    echo $0 ": could not get \$DISPLAY"
+    exit 1
+  fi
+  # name of the current script
+  SCRIPT=$(basename $0)
+  # use GUI dialog to get new time
+  NEW_TIME=$(crontab -l | awk -F/ '/'$SCRIPT'/ {print $1}' | python $0.py)
+  # sed command to change the time of the alarm
+  SED_CMD="s@^[^/]*\($(which $0)\)@${NEW_TIME} \1@"
+  # edit the crontab
+  crontab -l | sed -e "${SED_CMD}" | crontab -
+  exit 0
 }
 
 
@@ -73,10 +107,19 @@ case $# in
 0)
   start_alarm
   ;;
+1)
+  if [ "$1" = "--set" ]; then
+    set_alarm_interactive
+  else
+    echo $0 ": invalid syntax"
+    exit 1
+  fi
+  ;;
 2)
   set_alarm $1 $2
   ;;
 *)
   echo $0 ": invalid number of options."
+  exit 1
   ;;
 esac
