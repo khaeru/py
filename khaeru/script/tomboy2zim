@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+"""Convert Tomboy XML notes to Zim markup.
+Paul Kishimoto <mail@paul.kishimoto.name>
+
+With code from and reference to 'tzim.py' by:
+- Simon Wiles <simonjwiles at gmail.com> @ https://bugs.launchpad.net/208995
+- Bengt J. Olsson <bengt@blafs.com> @ http://blafs.com/diverse.html
+
+"""
+import glob
+import io
+import os
+import os.path
+import sys
+import xml.parsers.expat
+
+
+# discard these tags, but reprint their contents
+discard = [
+  'list',
+  'text',
+  'size:small',
+  'link:url',
+  'note',
+  'note-content',
+  'tags',
+  ]
+
+# do not reprint these tags or their contents
+mute = [
+  'last-change-date',
+  'last-metadata-change-date',
+  'create-date',
+  'cursor-position',
+  'selection-bound-position',
+  'width',
+  'height',
+  'x',
+  'y',
+  'open-on-startup',
+  'tag',
+  ]
+
+# store the contents of these tags in the 'status' dict
+capture = [
+  'create-date',
+  'tag',
+  'title',
+  ]
+
+# replace these opening tags with the corresponding markup
+markup_start = {
+  'note': """Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date:
+""",
+  'bold': '**',
+  'italic': '//',
+  'strikethrough': '~~',
+  'monospace': "''",
+  'highlight': '__',
+  'link:internal': '[[',
+  'title': '\n====== ',
+  'size:huge': '\n===== ',
+  'size:large': '\n==== ',
+  'list-item': '* ',
+  }
+
+# replace these closing tags with the corresponding markup
+markup_end = {
+  'bold': '**',
+  'italic': '//',
+  'strikethrough': '~~',
+  'monospace': "''",
+  'highlight': '__',
+  'link:internal': ']]',
+  'title': ' ======\n',
+  'size:huge': ' =====\n',
+  'size:large': ' ====\n',
+  'note': '',
+  'list-item': '',
+  }
+
+# replace these string tokens
+token = [
+  ('&gt;', '>'),
+  ('&lt;', '<'),
+  ('&amp;', '&'),
+  ('  \n======', '======'), # remove spurious spaces above of the title
+  ]
+
+# per-file dictionary of status
+status = {}
+
+
+def start_element(name, attrs):
+    """Expat callback for opening XML elements."""
+    if name in discard:
+        # nothing to be done
+        return
+    if name in capture:
+        # store the name of element we are capturing. This will not work if two
+        # elements from 'capture' are nested.
+        status['capture'] = name
+        status.setdefault(name, '')
+    # elements are either muted, or markup
+    if name in mute:
+        # make the 'silent' counter nonzero
+        status['silent'] += 1
+    elif name in markup_start:
+        # deal with nested lists: indent appropriately
+        if name == 'list-item':
+            print('\t' * status['list_depth'], end='')
+            status['list_depth'] += 1
+        # transform the markup
+        print(markup_start[name], end='')
+    else:
+        # complain about unrecognized elements
+        sys.__stdout__.write(name + str(attrs))
+        assert False
+
+
+def end_element(name):
+    """Expat callback for closing XML elements."""
+    if name in discard:
+        return
+    if name in capture:
+        # done capturing
+        status['capture'] = None
+    # elements are either muted, or markup
+    if name in mute:
+        # unmute
+        status['silent'] -= 1
+    elif name in markup_end:
+        # unindent nested lists
+        if name == 'list-item':
+            status['list_depth'] -= 1
+            assert status['list_depth'] >= 0
+        # transform the markup
+        print(markup_end[name], end='')
+    else:
+        # complain about unrecognized elements. This should never be triggered
+        # unless the note contains badly-formed XML (end tags without
+        # corresponding opening tags)
+        assert False
+
+
+def char_data(data):
+    """Expat callback for XML character data."""
+    # if not within a 'mute' element, reproduce the chardata
+    if not status['silent']:
+        print(data, end='')
+    # if within a 'capture' element, store the data for later use
+    if status['capture']:
+        # use += because expat sometimes breaks chardata into multiple segments
+        status[status['capture']] += data
+
+
+def convert_page(fn_in):
+    global status
+    # reset the status dict: mute off, top list level, not capturing
+    status = {
+      'silent': 0,
+      'list_depth': 0,
+      'capture': None,
+      }
+    notebook = ''
+    # create the parser. This should be in the main method (see comment), but
+    # the object is not reusable: http://bugs.python.org/issue6676
+    p = xml.parsers.expat.ParserCreate()
+    p.StartElementHandler = start_element
+    p.EndElementHandler = end_element
+    p.CharacterDataHandler = char_data
+    # context with input file and a string buffer
+    with open(fn_in, 'rb') as f_in, io.StringIO() as s_out:
+        # replace stdout so 'print' elsewhere is stored
+        sys.stdout = s_out
+        # parse the Tomboy note
+        p.ParseFile(f_in)
+        sys.stdout = sys.__stdout__
+        result = s_out.getvalue()
+    # replace tokens
+    for t in token:
+        result = result.replace(t[0], t[1])
+    # add creation date
+    # TODO: Tomboy uses decimal seconds; Zim does not. Check if a conversion is
+    # necessary
+    result = result.replace('Creation-Date:', 'Creation-date: {}'.format(
+        status['create-date']), 1)
+    # add tags, determine a subdirectory name from Tomboy notebook tags
+    if 'tag' in status:
+        print(status['tag'])
+        if 'system:notebook' in status['tag']:
+            notebook = status['tag'].replace('system:notebook:', '').replace(
+                'system:template', '')
+            if not os.path.exists(notebook):
+                os.mkdir(notebook)
+        else:
+            result += '\n**Tomboy tags:** ' + status['tag']
+    # underscores in filename
+    # TODO: check if Zim prefers other substitutions
+    fn_out = os.path.join(notebook, status['title'].replace(' ', '_') + '.txt')
+    # write file
+    if os.path.exists(fn_out):
+        print('File {} exists, skipping {}'.format(fn_out, fn_in))
+    else:
+        with open(fn_out, 'w') as f_out:
+            f_out.write(result)
+
+
+if __name__ == '__main__':
+    path_in_default = '~/.local/share/tomboy/'
+    path_out_default = './'
+    # input path
+    path_in = os.path.dirname(input('Path to Tomboy notes (default {}): '.format(
+      path_in_default)))
+    if path_in == '':
+        path_in = path_in_default
+    path_out = os.path.dirname(input('Path for Zim pages (default {}): '.format(
+        path_out_default)))
+    # list of notes to convert
+    t_notes = glob.glob(os.path.join(os.path.expanduser(path_in), '*.note'))
+    # output path
+    if path_out == '':
+        path_out = path_out_default
+    path_out = os.dirname(os.path.expanduser(path_out + '/'))
+    # create if it does not exist
+    if not os.path.exists(path_out):
+        os.mkdir(path_out)
+    os.chdir(path_out)
+    # FIXME: create the parser here (see convert_page)
+    # convert the Tomboy notes to Zim pages
+    for note in t_notes:
+        convert_page(note)
