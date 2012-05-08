@@ -17,7 +17,6 @@ import xml.parsers.expat
 
 # discard these tags, but reprint their contents
 discard = [
-  'list',
   'text',
   'size:small',
   'link:url',
@@ -59,10 +58,12 @@ Creation-Date:
   'strikethrough': '~~',
   'monospace': "''",
   'highlight': '__',
-  'link:internal': '[[',
+  'link:broken': ']]',
+  'link:internal': ']]',
   'title': '\n====== ',
   'size:huge': '\n===== ',
   'size:large': '\n==== ',
+  'list': '',
   'list-item': '* ',
   }
 
@@ -73,11 +74,13 @@ markup_end = {
   'strikethrough': '~~',
   'monospace': "''",
   'highlight': '__',
+  'link:broken': ']]',
   'link:internal': ']]',
   'title': ' ======\n',
   'size:huge': ' =====\n',
   'size:large': ' ====\n',
   'note': '',
+  'list': '',
   'list-item': '',
   }
 
@@ -89,11 +92,21 @@ token = [
   ('  \n======', '======'), # remove spurious spaces above of the title
   ]
 
+notebook_token = [
+  ('system:notebook:', ''),
+  ('system:template', ''),
+  (' ', '_'),
+  ('/', '_'),
+  ]
+
 # per-file dictionary of status
 status = {}
 
+# overall status
+notebooks = []
 
 def start_element(name, attrs):
+    global status
     """Expat callback for opening XML elements."""
     if name in discard:
         # nothing to be done
@@ -109,9 +122,10 @@ def start_element(name, attrs):
         status['silent'] += 1
     elif name in markup_start:
         # deal with nested lists: indent appropriately
-        if name == 'list-item':
-            print('\t' * status['list_depth'], end='')
+        if name == 'list':
             status['list_depth'] += 1
+        elif name == 'list-item':
+            print('\t' * (status['list_depth'] - 1), end='')
         # transform the markup
         print(markup_start[name], end='')
     else:
@@ -121,19 +135,20 @@ def start_element(name, attrs):
 
 
 def end_element(name):
+    global status
     """Expat callback for closing XML elements."""
     if name in discard:
         return
     if name in capture:
         # done capturing
-        status['capture'] = None
+        status['capture'] = False
     # elements are either muted, or markup
     if name in mute:
         # unmute
         status['silent'] -= 1
     elif name in markup_end:
         # unindent nested lists
-        if name == 'list-item':
+        if name == 'list':
             status['list_depth'] -= 1
             assert status['list_depth'] >= 0
         # transform the markup
@@ -151,18 +166,18 @@ def char_data(data):
     if not status['silent']:
         print(data, end='')
     # if within a 'capture' element, store the data for later use
-    if status['capture']:
+    if status.get('capture', False):
         # use += because expat sometimes breaks chardata into multiple segments
         status[status['capture']] += data
 
 
 def convert_page(fn_in):
-    global status
+    global status, notebooks
     # reset the status dict: mute off, top list level, not capturing
     status = {
       'silent': 0,
       'list_depth': 0,
-      'capture': None,
+      'capture': False,
       }
     notebook = ''
     # create the parser. This should be in the main method (see comment), but
@@ -186,20 +201,22 @@ def convert_page(fn_in):
     # TODO: Tomboy uses decimal seconds; Zim does not. Check if a conversion is
     # necessary
     result = result.replace('Creation-Date:', 'Creation-date: {}'.format(
-        status['create-date']), 1)
+      status['create-date']), 1)
     # add tags, determine a subdirectory name from Tomboy notebook tags
     if 'tag' in status:
-        print(status['tag'])
+        #print(status['tag'])
         if 'system:notebook' in status['tag']:
-            notebook = status['tag'].replace('system:notebook:', '').replace(
-                'system:template', '')
+            notebook = status['tag']
+            for t in notebook_token:
+                notebook = notebook.replace(t[0], t[1])
             if not os.path.exists(notebook):
                 os.mkdir(notebook)
+                notebooks.append(notebook)
         else:
             result += '\n**Tomboy tags:** ' + status['tag']
     # underscores in filename
-    # TODO: check if Zim prefers other substitutions
-    fn_out = os.path.join(notebook, status['title'].replace(' ', '_') + '.txt')
+    fn_out = status['title'].replace(' ', '_').replace('/', '_') + '.txt'
+    fn_out = os.path.join(notebook, fn_out)
     # write file
     if os.path.exists(fn_out):
         print('File {} exists, skipping {}'.format(fn_out, fn_in))
@@ -212,8 +229,8 @@ if __name__ == '__main__':
     path_in_default = '~/.local/share/tomboy/'
     path_out_default = './'
     # input path
-    path_in = os.path.dirname(input('Path to Tomboy notes (default {}): '.format(
-      path_in_default)))
+    path_in = os.path.dirname(input('Path to Tomboy notes (default {}):'
+      ' '.format(path_in_default)))
     if path_in == '':
         path_in = path_in_default
     path_out = os.path.dirname(input('Path for Zim pages (default {}): '.format(
@@ -223,7 +240,7 @@ if __name__ == '__main__':
     # output path
     if path_out == '':
         path_out = path_out_default
-    path_out = os.dirname(os.path.expanduser(path_out + '/'))
+    path_out = os.path.dirname(os.path.expanduser(path_out + '/'))
     # create if it does not exist
     if not os.path.exists(path_out):
         os.mkdir(path_out)
@@ -232,3 +249,9 @@ if __name__ == '__main__':
     # convert the Tomboy notes to Zim pages
     for note in t_notes:
         convert_page(note)
+    for notebook in notebooks:
+        notebook_fn = '{}.txt'.format(notebook)
+        if not os.path.exists(notebook_fn):
+            # 'touch' the file, per http://stackoverflow.com/q/1158076
+            with open(notebook_fn, 'a'):
+                os.utime(notebook_fn, None)

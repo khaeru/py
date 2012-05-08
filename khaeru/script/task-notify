@@ -8,4 +8,6 @@
 #
 #   report.notify.columns=description.desc
 #   report.notify.filter=status:pending start.any:
-notify-send "Active tasks" "`task notify | tail -n +4 | head -n -2`"
+if [ "`task notify`" != "No matches." ]; then
+  notify-send "Active tasks" "`task notify | tail -n +4 | head -n -2`"
+fi
