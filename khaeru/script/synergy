@@ -1,0 +1,26 @@
+#!/bin/sh
+
+SCRIPT=`basename $0`
+if [ $SCRIPT = "synergy-jp" ]; then
+  HOST=esdceeprjpstudent1.mit.edu
+  AUTO_USER=pnk
+elif [ $SCRIPT = "synergy-kd" ]; then
+  HOST=a.paul.kishimoto.name
+  AUTO_USER=khaeru
+fi
+
+AUTOSSH_PIDFILE=$HOME/.cache/synergy-autossh.pid autossh -f -N -L \
+  localhost:24800:$HOST:24800 $AUTO_USER@$HOST
+
+synergyc --name k-laptop localhost
+
+while read input
+do
+  sleep 3
+done
+
+killall synergyc
+
+if [ -f "$HOME/.cache/synergy-autossh.pid" ]; then
+  kill `cat $HOME/.cache/synergy-autossh.pid`
+fi

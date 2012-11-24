@@ -48,7 +48,7 @@ fi
 # directory containing this wrapper and the script
 DIR="$( cd "$( dirname "$0" )" && pwd )"
 # invoke the actual script
-env python $DIR/gk-query.py $1
+env python3 $DIR/gk-query.py $1
 
 # kill the services if they were started by this script
 [ -z "$RUN_GKD" ] || kill -HUP $GNOME_KEYRING_PID
