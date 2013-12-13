@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""Usage: {} BIBFILE
+
+Check the 'localfile' keys of the BibTeX entries in BIBFILE against the
+contents of the current directory.
+"""
+from collections import OrderedDict
+from os import listdir
+from os.path import exists, isdir
+import re
+import sys
+
+
+libfile = 'all.reflib'
+ignore = set([
+    '.git',
+    '.gitignore',
+    libfile,
+    'README',
+    ])
+
+
+def bib_files(f):
+    """Read BibTeX entries from file *f*.
+
+    Assumes entries are separated by blank lines, and there are no blank lines
+    within entries. Returns a collections.OrderedDict, in which all BibTeX
+    entries are stored as strings under their BibTeX keys, and other non-entry
+    content of *f* is preserved in order.
+    """
+    entries = OrderedDict()
+    re1 = re.compile("@[^{]*{([^,]*),\n")
+    re2 = re.compile("\tlocalfile = {([^\}]*)},\n")
+    # state:
+    # - None: the next line is start of a new entry, or non-entry BibTeX code
+    #   like a @comment
+    # - any other value: either the key of an entry, or the first line of non-
+    #   entry code in a non-entry block
+    current = None
+    for line in f:  # process the file linewise
+        if current is None:  # next line might be the start of a new entry
+            key = re1.match(line)
+            if key:  # it is
+                current = key.groups()[0]
+                entries[current] = None
+        elif line == '\n':  # a blank line; we're between entries or other code
+            current = None
+        else:  # currently reading an entry
+            fn = re2.match(line)
+            if fn:
+                entries[current] = fn.groups()[0]
+    return entries
+
+
+if __name__ == '__main__':
+    # input
+    try:
+        with open(sys.argv[1], 'r') as f:
+            bib = bib_files(f)
+    except IndexError:
+        print(__doc__.format(sys.argv[0]))
+        sys.exit(1)
+    # get the set of files in the current directory
+    files = set(filter(lambda x: not isdir(x),
+              listdir('.'))).difference(ignore)
+    # check the files
+    nofile = []
+    missing = []
+    for key, fn in bib.items():
+        if fn in files:
+            files.remove(fn)
+        elif fn is None:
+            nofile.append(key)
+        else:
+            missing.append('{} → {}'.format(key, fn))
+    # output
+    print('Checking {}'.format(libfile),
+        '{} entries with a localfile key'.format(len(bib)),
+        '{} missing files:'.format(len(missing)),
+        '\t' + '\n\t'.join(sorted(missing)),
+        '{} entries without files:'.format(len(nofile)),
+        '\t' + '\n\t'.join(sorted(nofile)),
+        '{} files not listed in any entry:'.format(len(files)),
+        '\t' + '\n\t'.join(sorted(files)), sep='\n')
