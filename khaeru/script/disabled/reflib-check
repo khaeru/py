@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Check a Referencer library
 from os import listdir
-from os.path import exists
+from os.path import exists, isdir
 from urllib.parse import unquote
 from xml.dom.minidom import parse
 
@@ -10,6 +10,7 @@ libfile = 'all.reflib'
 ignore = set([
   '.git',
   '.gitignore',
+  '.rsync-filter',
   'all.bib',
   'all.reflib',
   'README',
@@ -64,10 +65,11 @@ def check():
         if not skip and e.firstChild:
             entries.add(unquote(e.firstChild.data))
     # get the set of files in the current directory
-    files = set(listdir('.')).difference(ignore)
+    files = set(filter(lambda x: not isdir(x),
+              listdir('.'))).difference(ignore)
     # output
     print('Files not in %s:\n  ' % libfile,
-      '\n  '.join(files.difference(entries)), 
+      '\n  '.join(sorted(files.difference(entries))),
       '\n\nEntries from %s without files:\n  ' % libfile,
       '\n  '.join(entries.difference(files)), sep='')
 

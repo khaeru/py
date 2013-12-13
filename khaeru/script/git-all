@@ -1,0 +1,8 @@
+#!/bin/sh
+cd $HOME
+for d in $(find . -name .git); do
+  changed=$(git --git-dir=$d --work-tree=$(dirname $d) status --short | wc -l)
+  if [ $changed -gt 0 ]; then
+    echo $changed $(dirname $d)
+  fi
+done
