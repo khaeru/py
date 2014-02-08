@@ -1,6 +1,10 @@
 #!/bin/sh
+# Locate directories below the current one which are Git-controlled and have
+# uncommitted changes.
+# Ignore some paths that cause errors to be printed, or are not of interest
+PRUNE="-path ./.cache/dconf -o -path ./vc/Dropbox"
 cd $HOME
-for d in $(find . -name .git); do
+for d in $(find . \( $PRUNE \) -prune -o -name .git -print); do
   changed=$(git --git-dir=$d --work-tree=$(dirname $d) status --short | wc -l)
   if [ $changed -gt 0 ]; then
     echo $changed $(dirname $d)
