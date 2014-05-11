@@ -47,12 +47,10 @@ def get():
 
 
 @lru_cache()
-def local_ipv4(ping='google.com'):
-    """Get the local IPv4 address by opening a socket to *ping*."""
-    import socket
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect((ping, 0))
-    return s.getsockname()[0]
+def local_ipv4(target='http://jsonip.com'):
+    """Get the local IPv4 address."""
+    result = json.load(TextIOWrapper(urllib.request.urlopen(target)))
+    return result['ip']
 
 
 def set(addr):
