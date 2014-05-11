@@ -11,16 +11,21 @@ import re
 import sys
 
 
-libfile = 'all.reflib'
 ignore = set([
     '.git',
     '.gitignore',
-    libfile,
     'README',
     ])
 
 
-def bib_files(f):
+ENTRY = """@{}{{{},
+\t{}
+}}
+
+"""
+
+
+def read_database(f):
     """Read BibTeX entries from file *f*.
 
     Assumes entries are separated by blank lines, and there are no blank lines
@@ -29,34 +34,50 @@ def bib_files(f):
     content of *f* is preserved in order.
     """
     entries = OrderedDict()
-    re1 = re.compile("@[^{]*{([^,]*),\n")
-    re2 = re.compile("\tlocalfile = {([^\}]*)},\n")
+    # RegEx for the start of an entry
+    re1 = re.compile("@([^{]*){([^,]*),\n")
+    re2 = re.compile("\t([^\s]*) = (.*),?\n")
     # state:
     # - None: the next line is start of a new entry, or non-entry BibTeX code
     #   like a @comment
     # - any other value: either the key of an entry, or the first line of non-
     #   entry code in a non-entry block
     current = None
+    extra = 0
     for line in f:  # process the file linewise
         if current is None:  # next line might be the start of a new entry
             key = re1.match(line)
             if key:  # it is
-                current = key.groups()[0]
-                entries[current] = None
+                current = key.groups()[1]
+                entries[current] = OrderedDict(__type=key.groups()[0])
+            else:
+                entries[extra] = line
+                extra += 1
         elif line == '\n':  # a blank line; we're between entries or other code
             current = None
         else:  # currently reading an entry
             fn = re2.match(line)
             if fn:
-                entries[current] = fn.groups()[0]
+                entries[current][fn.groups()[0]] = fn.groups()[1].rstrip(',')
     return entries
+
+
+def write_database(f, db):
+    for key, entry in db.items():
+        if isinstance(key, int):
+            f.write(entry)
+            continue
+        t = entry.pop('__type')
+        f.write(ENTRY.format(t, key, ',\n\t'.join(['{} = {}'.format(k, v) for
+                                                    k, v in entry.items()])))
 
 
 if __name__ == '__main__':
     # input
     try:
-        with open(sys.argv[1], 'r') as f:
-            bib = bib_files(f)
+        libfile = sys.argv[1]
+        ignore.add(libfile)
+        bib = read_database(open(libfile, 'r'))
     except IndexError:
         print(__doc__.format(sys.argv[0]))
         sys.exit(1)
@@ -67,12 +88,15 @@ if __name__ == '__main__':
     nofile = []
     missing = []
     for key, fn in bib.items():
-        if fn in files:
-            files.remove(fn)
-        elif fn is None:
+        if isinstance(key, int):
+            continue
+        try:
+            if fn['localfile'] in files:
+                files.remove(fn)
+            else:
+                missing.append('{} → {}'.format(key, fn))
+        except KeyError:
             nofile.append(key)
-        else:
-            missing.append('{} → {}'.format(key, fn))
     # output
     print('Checking {}'.format(libfile),
         '{} entries with a localfile key'.format(len(bib)),
@@ -82,3 +106,5 @@ if __name__ == '__main__':
         '\t' + '\n\t'.join(sorted(nofile)),
         '{} files not listed in any entry:'.format(len(files)),
         '\t' + '\n\t'.join(sorted(files)), sep='\n')
+    ## debug: Try to write the file again
+    #write_database(open('test.bib', 'w'), bib)
