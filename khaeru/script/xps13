@@ -7,7 +7,10 @@ xinput set-prop "CyPS/2 Cypress Trackpad" "Synaptics Scrolling Distance" -15 -15
 xgamma -quiet -gamma 0.75
 
 exit 0
-# disabled
+# below this line disabled
+
+# Apple Bluetooth keyboard: use function keys as F1 etc. first
+echo 2 | sudo tee /sys/module/hid_apple/parameters/fnmode
 
 # set backlight to fix fn+f4/fn+f5 not working after suspend/resume (raring)
 echo 0 | sudo tee /sys/class/backlight/intel_backlight/brightness
