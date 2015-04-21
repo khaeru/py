@@ -6,8 +6,12 @@ possibly different sizes or (EXIF etc.) metadata. ImageMagick ('identify'
 binary, which must be available) is used to compute the SHA-256 of the image
 *data* only.
 
-The list of duplicate files is written to duplicates.txt. All output can be
-captured by piping to 'tee'.
+The list of duplicate files is written to duplicates.txt.
+
+Tips!
+- The verbose output can be captured by piping to 'tee'.
+- Use something like "cat duplicates.txt | tr '\n' '\0' | xargs -0 gvfs-trash"
+  to reversibly delete the duplicate files.
 
 """
 
@@ -40,6 +44,7 @@ for i in range(1, len(images)):
 
 # Full paths of files which are duplicates, but NOT originals
 duplicates = []
+of = open('duplicates.txt', 'w')
 
 fail = False  # Flag for a condition we can't handle
 for bn, dirs in dupes.items():  # Iterate over duplicated filenames
@@ -85,9 +90,7 @@ for bn, dirs in dupes.items():  # Iterate over duplicated filenames
                 continue
             else:  # Add f2 to the list of duplicates
                 duplicates.append(f2[0])
+                of.write(f2[0] + '\n')
         else:  # Hashes don't match
             print("Matching filenames, distinct hash:\n\t{}\n\t{}\n".format(
                   f1[0], f2[0]), flush=True)
-
-with open('duplicates.txt', 'w') as of:
-    of.write('\n'.join(sorted(duplicates)))
