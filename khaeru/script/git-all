@@ -1,6 +1,6 @@
 #!/bin/sh
-# Locate directories below the current one which are Git-controlled and have
-# uncommitted changes.
+# Locate directories under $HOME which are Git-controlled and have uncommitted
+# changes.
 # Ignore some paths that cause errors to be printed, or are not of interest
 PRUNE="-path ./.cache/dconf -o -path ./vc/Dropbox"
 cd $HOME
