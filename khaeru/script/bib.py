@@ -5,7 +5,7 @@ Licensed under the GNU GPL v3.
 """
 import argparse
 from glob import iglob
-from itertools import filterfalse
+from itertools import filterfalse, zip_longest
 import os
 import os.path
 import re
@@ -180,23 +180,38 @@ class BibApp:
                     sets['missing'].add(e['ID'])
 
         # Output
-        print('OK: %d entries + matching files' % len(sets['ok']),
-              '\t' + ' '.join(sorted(sets['ok'])),
+        output_format = kwargs.get('format', 'plain')
+        if output_format == 'plain':
+            output = self._check_files_plain
+        elif output_format == 'csv':
+            output = self._check_files_csv
+        output(sorted(sets['ok']), sorted(sets['other']),
+               sorted(sets['missing']), sorted(sets['broken']),
+               files)
+
+    def _check_files_plain(self, ok, other, missing, broken, files):
+        print('OK: %d entries + matching files' % len(ok),
+              '\t' + ' '.join(sorted(ok)),
               '',
-              'OK: %d other entries by filter rules' % len(sets['other']),
-              '\t' + ' '.join(sorted(sets['other'])),
+              'OK: %d other entries by filter rules' % len(other),
+              '\t' + ' '.join(sorted(other)),
               '',
-              "Missing: %d entries w/o 'localfile' key" % len(sets['missing']),
-              '\t' + '\n\t'.join(sorted(sets['missing'])),
+              "Missing: %d entries w/o 'localfile' key" % len(missing),
+              '\t' + '\n\t'.join(sorted(missing)),
               '',
-              "Broken: %d entries w/ missing 'localfile'" % len(
-                sets['broken']),
-              '\n'.join(['\t{}\t→\t{}'.format(*e) for e in sorted(
-                        sets['broken'])]),
+              "Broken: %d entries w/ missing 'localfile'" % len(broken),
+              '\n'.join(['\t{}\t→\t{}'.format(*e) for e in sorted(broken)]),
               '',
               'Not listed in any entry: %d files' % len(files),
               '\t' + '\n\t'.join(sorted(files)),
               sep='\n', end='\n')
+
+    def _check_files_csv(self, ok, other, missing, broken, files):
+        lines = ['\t'.join(['ok', 'other', 'missing', 'broken', 'files'])]
+        for group in zip_longest(ok, other, missing, broken, files,
+                                 fillvalue=''):
+            lines.append('\t'.join(group))
+        print('\n'.join(lines))
 
     def queue(self, **kwargs):
         """Display a reading queue.
