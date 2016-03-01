@@ -165,7 +165,15 @@ class BibApp:
                 if e.file_exists:
                     sets['ok'].add(e['ID'])
                     for fn in e.file_rel_path():
-                        files.remove(fn)
+                        try:
+                            files.remove(fn)
+                        except ValueError:
+                            if os.path.exists(fn):
+                                # File exists, but has perhaps been filtered or
+                                # is outside the tree.
+                                continue
+                            else:
+                                raise
                 else:
                     sets['broken'] |= {(e['ID'], lf) for lf in e['localfile']}
             else:
@@ -208,8 +216,9 @@ class BibApp:
 
     def _check_files_csv(self, ok, other, missing, broken, files):
         lines = ['\t'.join(['ok', 'other', 'missing', 'broken', 'files'])]
-        for group in zip_longest(ok, other, missing, broken, files,
-                                 fillvalue=''):
+        for group in zip_longest(ok, other, missing,
+                                 map(lambda x: '{} -> {}'.format(*x), broken),
+                                 files, fillvalue=''):
             lines.append('\t'.join(group))
         print('\n'.join(lines))
 
