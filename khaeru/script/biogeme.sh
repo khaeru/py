@@ -18,7 +18,7 @@ usage () {
 	- The LaTeX output in MODEL.tex is edited to delete the line:
 
 	    \end{document}
-	
+
 	  …which causes problems when including this file in another LaTeX
 	  document using \input{}.
 	- The .par file in the current directory (either MODEL.par or
@@ -99,7 +99,7 @@ FILES=`find $DIR -type f $(printf "! -name %s " $(echo $IGNORE | tr ' ' '\n'))`
 
 if [ -f "$MODEL.tex" ];
 then
-  sed -i '/\\end{document}/d' $MODEL.tex
+  sed -i -e "s@$DATA@$2@" -e '/\\end{document}/d' $MODEL.tex
 fi
 
 cp $FILES $ORIGIN
