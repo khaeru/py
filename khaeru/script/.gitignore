@@ -4,3 +4,5 @@ eppa5
 eppa6
 # temporarily inline: https://pad.lv/1565842
 biber
+# development files
+.ipynb_checkpoints
