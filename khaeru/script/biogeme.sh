@@ -5,12 +5,15 @@ usage () {
     echo "$(basename $0): cannot access $1: No such file"
   fi
   cat <<-EOF
-	Usage: $(basename $0) MODEL.mod DATA
+	Usage: $(basename $0) MODEL[.mod|.res] DATA
 
-	Run biogeme in a temporary directory (under \$TMPDIR or /tmp) to control
-	its outputs. If an output file like MODEL.html exists, biogeme's default
-	behaviour is to create MODEL~1.html, MODEL~2.html, etc. With biogeme.sh,
+	Run $TARGET in a temporary directory (under \$TMPDIR or /tmp) to control
+	its outputs. If an output file like MODEL.html exists, $TARGET's default
+	behaviour is to create MODEL~1.html, MODEL~2.html, etc. With $(basename $0),
 	these files are *overwritten* in the current directory.
+
+	If invoking biosim, MODEL.res may be used as an argument; otherwise MODEL.mod
+	is expected.
 
 	ALSO
 
@@ -28,14 +31,18 @@ usage () {
 
 	DIRECTORIES
 
-	If MODEL.mod is in a different directory, biogeme creates some output
+	If MODEL.mod is in a different directory, $TARGET creates some output
 	files (e.g. MODEL.html) in the same directory as MODEL.mod, and other
 	output files (e.g. summary.html) in the current directory. In contrast,
-	biogeme.sh creates all output files in the current directory.
+	$(basename $0) creates all output files in the current directory.
 
 EOF
+  rm -r $DIR
   exit 1
 }
+
+# Determine whether we're running biogeme or biosim
+TARGET=`basename -s .sh $0`
 
 # Create a temporary directory
 ORIGIN=`pwd`
@@ -45,14 +52,17 @@ DIR=`mktemp --tmpdir -d biogeme.XXX`
 if [ -f "$1" ];
 then
   MODFILE=`realpath $1`
+  if [ "$TARGET" = "biosim" ] && [ -n $(echo "$1" | grep -q '.res$') ];
+  then
+    MODEL=`basename -s .res $1`
+  fi
   MODEL=`basename -s .mod $1`
-  ln -s $MODFILE $DIR/
+  ln -s $MODFILE $DIR/$MODEL.mod
 else
   usage $1
 fi
 
 IGNORE="*.F12
-  *.res
   *.sta
   $MODEL.html
   __specFile.debug
@@ -91,9 +101,9 @@ fi
 
 ls -l $DIR
 
-# Run biogeme
+# Run biogeme or biosim
 cd $DIR
-biogeme $MODEL $DATA
+$TARGET $MODEL $DATA
 
 FILES=`find $DIR -type f $(printf "! -name %s " $(echo $IGNORE | tr ' ' '\n'))`
 
