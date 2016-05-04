@@ -5,4 +5,5 @@ eppa6
 # temporarily inline: https://pad.lv/1565842
 biber
 # development files
+__pycache__
 .ipynb_checkpoints
