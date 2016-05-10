@@ -410,6 +410,9 @@ class Model:
                 entries[-1] = entries[-1][:-3]
                 f.write('  '.join(entries) + '\n')
 
+    def write_data(self, **kwargs):
+        self.data.to_csv(self._data_fn, index=False, sep='\t', **kwargs)
+
 
 def lr_test(u, r, alpha=0.05):
     """Perform a likelihood ratio test.
