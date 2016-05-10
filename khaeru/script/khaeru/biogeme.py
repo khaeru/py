@@ -247,8 +247,13 @@ class Model:
             # Coefficient times the attribute in the design matrix
             self.D.loc[c, name, var] = True
 
-    def copy(self):
-        return deepcopy(self)
+    def copy(self, name=None, data_fn=None):
+        result = deepcopy(self)
+        if name is not None:
+            result.name = name
+        if data_fn is not None:
+            result._data_fn = data_fn
+        return result
 
     def estimate(self, name=None):
         """Run the model.
