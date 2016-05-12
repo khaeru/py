@@ -168,7 +168,7 @@ class Model:
             self.add_beta(name)
             self.D.loc[c, name, var] = True
 
-    def add_asconst(self, name_template='ASC%d', fixed='first'):
+    def add_asconst(self, name_template='ASC%s', fixed='first'):
         """Add alternative-specific constants (ASC) to the model.
 
         A constant is added to the model, if one does not already exist.
@@ -238,12 +238,13 @@ class Model:
         constructed using *name_template*.
 
         """
-        assert fixed == 'first'
+        assert fixed == 'first' or fixed in self.choices
         # Iterate over alternatives
         for i, c in enumerate(self.choices):
             name = name_template % c
             # Add the coefficient
-            self.add_beta(name, fixed=(fixed == 'first' and i == 0))
+            self.add_beta(name, fixed=((fixed == 'first' and i == 0) or
+                                       (fixed == c)))
             # Coefficient times the attribute in the design matrix
             self.D.loc[c, name, var] = True
 
@@ -424,5 +425,6 @@ def lr_test(u, r, alpha=0.05):
     r = r.stats
     X = -2 * (r.LB - u.LB)
     X_crit = chi2.ppf(1 - alpha, df=u.k - r.k)
-    print("-2 ({} + {}) = {:.1f} > {:.1f} = X²_{{0.95, {} - {}}} : {}".format(
-            r.LB, -u.LB, X, X_crit, u.k, r.k, X > X_crit))
+    print(("-2 ({} + {}) = {:.1f} > {:.1f} = "
+           "\\mathcal{{X}}^2_{{(0.95, {} - {})}} : \\text{{{}}}").format(
+          r.LB, -u.LB, X, X_crit, u.k, r.k, X > X_crit))
