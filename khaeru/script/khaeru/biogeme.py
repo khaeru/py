@@ -37,7 +37,6 @@ SKIP = [
     'AggregateWeight',
     'CNLAlpha',
     'CNLNests',
-    'Exclude',
     'GeneralizedUtilities',
     'IIATest',
     'LaTeX',
@@ -79,6 +78,8 @@ class Model:
     stats = None  # Statistics of the estimated model
     _available = {}  # choice alternative : availability variable
     _expressions = {}  # name : expression string
+    _exclude = None  # expression string
+    _generalized_utilities = {}  # choice: expression string
 
     def __init__(self, data_fn=None, model_type='MNL',
                  choice=None, avail_vars='avail%d', name=None, load=False):
@@ -148,6 +149,7 @@ class Model:
         # Record the choice variable and its distinct values
         self._choice = value
         self.choices = sorted(self.data[value].unique())
+        self._generalized_utilities = {c: None for c in self.choices}
         self.D = pd.Panel(items=self.choices, minor_axis=self._variables,
                           dtype=bool)
 
@@ -184,8 +186,29 @@ class Model:
             for key, value in self._expressions.items():
                 if value == 1:
                     const = key
+                    break
         # Iterate over alternatives
         self.add_attribute(name_template, const, fixed)
+        print(self._variables)
+
+    def add_attribute(self, name_template, var, fixed='first'):
+        """Add alternative-specific coefficients for individuals' attributes.
+
+        One of the coefficients is fixed to 0; *fixed* indicates which
+        (currently the only supported value is 'first', meaning the lowest
+        unique value of the choice variable). The names of the constants are
+        constructed using *name_template*.
+
+        """
+        assert fixed == 'first' or fixed in self.choices
+        # Iterate over alternatives
+        for i, c in enumerate(self.choices):
+            name = name_template % c
+            # Add the coefficient
+            self.add_beta(name, fixed=((fixed == 'first' and i == 0) or
+                                       (fixed == c)))
+            # Coefficient times the attribute in the design matrix
+            self.D.loc[c, name, var] = True
 
     def add_beta(self, name, value=0, lower=-100, upper=100, fixed=False):
         """Add a coefficient to the model."""
@@ -204,6 +227,14 @@ class Model:
         """Remove a coefficient from the model."""
         self._beta.drop(name, inplace=True)
         self.D.drop(name, axis=1, inplace=True)
+
+    def add_data(self, new):
+        """Add a data column to the model."""
+        # Update the data
+        self.data = pd.concat([self.data, new], axis=1)
+        # Extend the design matrix to include the new variable
+        self._variables.append(new.name)
+        self.D = self.D.reindex_axis(self._variables, axis=2)
 
     def add_expression(self, name, value):
         """Add an expression."""
@@ -229,24 +260,13 @@ class Model:
                 .format(var, name)
             self.D.loc[c, name, var] = True
 
-    def add_attribute(self, name_template, var, fixed='first'):
-        """Add alternative-specific coefficients for individuals' attributes.
-
-        One of the coefficients is fixed to 0; *fixed* indicates which
-        (currently the only supported value is 'first', meaning the lowest
-        unique value of the choice variable). The names of the constants are
-        constructed using *name_template*.
-
-        """
-        assert fixed == 'first' or fixed in self.choices
-        # Iterate over alternatives
-        for i, c in enumerate(self.choices):
-            name = name_template % c
-            # Add the coefficient
-            self.add_beta(name, fixed=((fixed == 'first' and i == 0) or
-                                       (fixed == c)))
-            # Coefficient times the attribute in the design matrix
-            self.D.loc[c, name, var] = True
+    def add_genutil(self, choice, expr):
+        """Add a generalized utility."""
+        assert choice in self.choices
+        if self._generalized_utilities[choice] is None:
+            self._generalized_utilities[choice] = expr
+        else:
+            self._generalized_utilities[choice] += ' + ' + expr
 
     def copy(self, name=None, data_fn=None):
         result = deepcopy(self)
@@ -256,7 +276,7 @@ class Model:
             result._data_fn = data_fn
         return result
 
-    def estimate(self, name=None):
+    def estimate(self):
         """Run the model.
 
         If *name* is given, the model is stored in "*name*.mod", and full
@@ -267,6 +287,10 @@ class Model:
         """
         self._run('biogeme')
         self.read_results()
+
+    def exclude(self, expr=None):
+        """Set an expression for excluding rows for from the data set."""
+        self._exclude = expr
 
     def read_results(self, overwrite=False):
         """Read model estimates from *basename*.rep and *basename*.res."""
@@ -286,7 +310,9 @@ class Model:
         """Read model from a .mod or .res file object *f*."""
         section = None
         skip = False
+        # Variable to cache groups from parsed lines
         groups = {section: [] for section in REGEX.keys()}
+        # Iterate over lines in the file
         for line in f:
             # Strip comments
             line = line.split('//')[0].strip()
@@ -303,6 +329,9 @@ class Model:
             elif section == 'Choice':
                 self.choice = line
                 continue
+            elif section == 'Exclude':
+                self._exclude = line
+                continue
             elif section == 'Model':
                 self.model_type = line.lstrip('$')
                 continue
@@ -315,6 +344,8 @@ class Model:
             else:
                 # Cache the matched values, so they can be loaded in order
                 groups[section].append(match.groups())
+        # End of file
+        # Save the data from the different sections
         for g in groups['Beta']:
             name = g[0].strip()
             value, lower, upper = map(float, g[1:4])
@@ -385,10 +416,14 @@ class Model:
                 f.write('[{}]\n'.format(name))
 
             section('Model', first=True)
-            f.write('$%s' % self.model_type)
+            f.write('$%s\n' % self.model_type)
 
             section('Choice')
             f.write('%s\n' % self.choice)
+
+            if self._exclude is not None:
+                section('Exclude')
+                f.write('%s\n' % self._exclude)
 
             section('Expressions')
             for name, expr in sorted(self._expressions.items()):
@@ -398,6 +433,7 @@ class Model:
             f.write('//')  # Comment the header row of the table
             # Write the 'fixed' column as '1'/'0', instead of 'True'/'False'
             self._beta.to_string(f, formatters={'fixed': lambda v: '%d' % v})
+            f.write('\n')
 
             section('Utilities')
             for c in self.choices:
@@ -411,8 +447,20 @@ class Model:
                 entries[-1] = entries[-1][:-3]
                 f.write('  '.join(entries) + '\n')
 
+            if any(map(lambda s: s is not None,
+                       self._generalized_utilities.values())):
+                section('GeneralizedUtilities')
+                for c in self.choices:
+                    gu = self._generalized_utilities[c]
+                    if gu is not None:
+                        f.write('{} {}\n'.format(c, gu))
+
     def write_data(self, **kwargs):
         self.data.to_csv(self._data_fn, index=False, sep='\t', **kwargs)
+
+
+LR = ("-2 (-{LB[0]} + {LB[1]}) = {X:.1f} > {X_crit:.1f} "
+      "= \\mathcal{{X}}²_{{({sig}, {df[0]} - {df[1]})}} : {result}")
 
 
 def lr_test(u, r, alpha=0.05):
@@ -423,8 +471,27 @@ def lr_test(u, r, alpha=0.05):
     """
     u = u.stats
     r = r.stats
-    X = -2 * (r.LB - u.LB)
-    X_crit = chi2.ppf(1 - alpha, df=u.k - r.k)
-    print(("-2 ({} + {}) = {:.1f} > {:.1f} = "
-           "\\mathcal{{X}}^2_{{(0.95, {} - {})}} : \\text{{{}}}").format(
-          r.LB, -u.LB, X, X_crit, u.k, r.k, X > X_crit))
+    info = {
+        'LB': [-r.LB, -u.LB],
+        'X': -2 * (r.LB - u.LB),
+        'sig': 1 - alpha,
+        'df': [u.k, r.k],
+        'X_crit': chi2.ppf(1 - alpha, df=u.k - r.k),
+        }
+    info['result'] = info['X'] > info['X_crit']
+    info['latex'] = LR.format(**info)
+    return info['result'], info
+
+
+def ms_test(full, groups, alpha=0.05):
+    """Perform a market segmentation test."""
+    info = {
+        'LB': [-full.stats.LB, -sum([g.stats.LB for g in groups])],
+        'sig': 1 - alpha,
+        'df': [sum([g.stats.k for g in groups]), full.stats.k],
+        }
+    info['X'] = -2 * (full.stats.LB + info['LB'][1])
+    info['X_crit'] = chi2.ppf(1 - alpha, df=info['df'][0] - full.stats.k)
+    info['result'] = info['X'] > info['X_crit']
+    info['latex'] = LR.format(**info)
+    return info['result'], info
