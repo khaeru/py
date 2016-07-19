@@ -77,9 +77,9 @@ class Model:
     name = None  # A name for the model
     stats = None  # Statistics of the estimated model
     _available = {}  # choice alternative : availability variable
-    _expressions = {}  # name : expression string
+    _expressions = None  # name : expression string
     _exclude = None  # expression string
-    _generalized_utilities = {}  # choice: expression string
+    _generalized_utilities = None  # choice: expression string
 
     def __init__(self, data_fn=None, model_type='MNL',
                  choice=None, avail_vars='avail%d', name=None, load=False):
@@ -102,6 +102,8 @@ class Model:
         """
         self.name = name
         self.stats = SimpleNamespace()
+        self._expressions = {}
+        self._generalized_utilities = {}  # choice: expression string
 
         # Read the list of variables
         self._data_fn = data_fn
@@ -189,7 +191,6 @@ class Model:
                     break
         # Iterate over alternatives
         self.add_attribute(name_template, const, fixed)
-        print(self._variables)
 
     def add_attribute(self, name_template, var, fixed='first'):
         """Add alternative-specific coefficients for individuals' attributes.
