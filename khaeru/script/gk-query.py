@@ -1,89 +1,95 @@
-# coding=UTF-8
+#!/usr/bin/env python3
 """GNOME-Keyring query script
 
 See gk-query for a description.
 
 """
 import curses
-import re
+from re import compile
 import sys
 
-from gi.repository import GnomeKeyring as gk
+import gi
 
 
 # keyring to use; if 'None', GnomeKeyring selects the default
 KEYRING = None
 
 
-def query_results(screen, search_re):
+def display_results(screen, items):
     """Display the query results.
 
     *screen* is the curses screen set up for this callback function by
-    curses.wrapper(). The re.RegexObject *search_re* is matched against the
-    display name of every item in the login keyring. For every match found, the
-    user is prompted to display the associated secret, skip, or quit.
+    curses.wrapper(); *items* is an iterable of Secret.Item.
 
-    Returns True if any items match *search_re*, otherwise False.
-    
     """
     curses.use_default_colors()
-    # search the login keyring; can't use gk.find_items_sync here because it has
-    #   no regex functionality
-    found = False
-    for item_id in gk.list_item_ids_sync(KEYRING)[1]:
-        rc, item = gk.item_get_info_sync(KEYRING, item_id)
-        # match the item's name
-        if search_re.match(item.get_display_name()):
-            found = True
-            # prompt the user
-            screen.addstr("Display secret for '{}'? [y/N/q] ".format(
-                                               item.get_display_name()))
-            # single character input
-            key = screen.getkey()
-            if key in ['y', 'Y']:
-                # display the secret
-                #commented: the following seems to be broken:
-                ## also display the username, if available
-                #attrs = gk.Attribute.list_new()
-                #gk.item_get_attributes_sync(KEYRING, item_id, attrs)
-                #try:
-                #    screen.addstr('{}'.format(attrs['username_value']))
-                #except KeyError:
-                #    pass
-                screen.addstr('\n{}\n'.format(item.get_secret()))
-            elif key in ['q', 'Q']:
-                # quit: push a key to the next getch for a speedy exit
-                curses.ungetch(10)
-                break
-            else:
-                screen.addstr('\n')
-    # done; pause or eat the key that was ungetch()'d
+
+    for item in items:
+        attrs = item.get_attributes()
+
+        # Prompt the user
+        screen.addstr("Display secret for '{}'? [y/N/q] "
+                      .format(attrs['origin_url']))
+
+        # Single character input
+        key = screen.getkey()
+        if key in ['y', 'Y']:
+            # Also display the username, if available
+            try:
+                screen.addstr('\nusername: {}'.format(attrs['username_value']))
+            except KeyError:
+                pass
+            # Display the secret
+            item.load_secret_sync()
+            screen.addstr('\n{}\n\n'.format(item.get_secret().get_text()))
+        elif key in ['q', 'Q']:
+            # Quit: push a key to the next getch for a speedy exit
+            curses.ungetch(10)
+            break
+        else:
+            screen.addstr('\n')
+
+    # Done; pause or eat the key that was ungetch()'d
     screen.addstr('Press any key to continue ...')
     screen.getch()
-    # hide the secrets by clearing the screen
-    screen.clear()
-    return found
 
 
 if __name__ == '__main__':
-    # check that gnome-keyring is available
-    if not gk.is_available():
-        print('{}: gnome-keyring is unavailable'.format(sys.argv[0]))
-        sys.exit(1)
-    # unlock the login keyring, if necessary
+    gi.require_version('GnomeKeyring', '1.0')
+    gi.require_version('Secret', '1')
+    from gi.repository import GnomeKeyring as gkr, Secret
+
+    # Unlock the login keyring, if necessary
     was_locked = False
-    if gk.get_info_sync(KEYRING)[1].get_is_locked():
+    if gkr.get_info_sync(KEYRING)[1].get_is_locked():
         was_locked = True
         import getpass
-        gk.unlock_sync('login', getpass.getpass(prompt=
-          'Enter password for login keyring: '))
-    # use curses.wrapper to ensure things are taken care of in case of a
-    #   KeyboardInterrupt or other exception
-    found = curses.wrapper(query_results, re.compile(r'.*{}.*'.format(
-                                                          sys.argv[1])))
-    # helpful feedback
-    if not found:
+        result = gkr.unlock_sync('login',
+                                 getpass.getpass(prompt='Enter password for '
+                                                 'login keyring: '))
+        if result == gkr.Result.IO_ERROR:  # Incorrect password
+            sys.exit(1)
+
+    # Connect to libsecret
+    service = Secret.Service.get_sync(Secret.ServiceFlags.OPEN_SESSION |
+                                      Secret.ServiceFlags.LOAD_COLLECTIONS)
+    collections = service.get_collections()
+
+    # Search the default keyring
+    items = service.unlock_sync(collections, None)[1][0].get_items()
+
+    # Match the item's name using the search string as a regular expression
+    found = [i for i in items if compile(sys.argv[1]).search(i.get_label())]
+
+    if len(found):
+        # Prompt the user to display any results. Use curses.wrapper to ensure
+        # things are taken care of in case of a KeyboardInterrupt or other
+        # exception, and that the screen is wiped afterwards.
+        curses.wrapper(display_results, found)
+    else:
+        # Helpful feedback
         print("No matches for search term '{}'.".format(sys.argv[1]))
-    # relock the keyring if necessary
+
+    # Relock the keyring if necessary
     if was_locked:
-        gk.lock_sync(KEYRING)
+        gkr.lock_sync(KEYRING)
