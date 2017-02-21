@@ -19,25 +19,26 @@
 # The script is exhaustively commented so that it can be easily customized.
 # There are some TODO items, marked as such.
 
-# Destination directory for local installation
-DEST=$HOME/.local
+# Check http://www.python.org/download/releases/ to see if a newer version has
+# been released.
+P3VER=3.4.3
+# MD5 checksum of the latest version. This should be available on the Python 3
+# download page. Because this script downloads files from the Internet, this
+# is used to check that nothing malicious is happening (e.g. a virus has been
+# downloaded instead). If the checksum doesn't match, the script quits.
+P3MD5=cea34079aeb2e21e7b60ee82a0ac286b
 
-# Python 3
+# Destination directory for local installation
+DEST="$HOME/.local"
+
+# Install the latest version of Python 3
 py3k () {
-  # Install the latest version of Python 3. Check
-  # http://www.python.org/download/releases/ to see if a newer version has been
-  # released.
-  P3VER=3.2.3
-  # get the source code
-  wget http://www.python.org/ftp/python/$P3VER/Python-$P3VER.tar.bz2
-  # MD5 checksum of the latest version. This should be available on the Python 3
-  # download page. Because this script downloads files from the Internet, this
-  # is used to check that nothing malicious is happening (e.g. a virus has been
-  # downloaded instead). If the checksum doesn't match, the script quits.
-  P3MD5=cea34079aeb2e21e7b60ee82a0ac286b
+  # Get the source code
+  curl https://www.python.org/ftp/python/$P3VER/Python-$P3VER.tar.xz \
+       https://www.python.org/ftp/python/$P3VER/Python-$P3VER.tar.xz.asc
   echo "$P3MD5  Python-$P3VER.tar.bz2" | md5sum --check --status || exit 1
   # extract the source code
-  tar xjf Python-$P3VER.tar.bz2
+  tar xJf Python-$P3VER.tar.xz
   cd Python-$P3VER
   # configure, build & install
   ./configure --prefix=$DEST
@@ -62,9 +63,7 @@ EOF
   export PATH=$DEST/bin:$PATH
 
   # distribute -- http://pypi.python.org/pypi/distribute
-  wget http://python-distribute.org/distribute_setup.py
-  python3 distribute_setup.py
-  rm distribute_setup.py*
+  https://bootstrap.pypa.io/get-pip.py
 
   # pip -- check http://pypi.python.org/pypi/pip to see if a newer version has
   # been released
@@ -76,26 +75,12 @@ EOF
   rm -r pip-$PIPVER*
 }
 
-# virtualenv
-virtualenv () {
-  # Set up a custom Python 2.7 environment for the user. See documentation at
-  # http://www.virtualenv.org/en/latest/index.html. The purpose of this is to
-  # allow the use of 'pip' to install additional packages for Python 2.
-  wget https://raw.github.com/pypa/virtualenv/master/virtualenv.py
-  python virtualenv.py --distribute --system-site-packages $DEST
-  # clean up
-  rm -r virtualenv.py*
-}
-
-# Shortcut function to install packages for both Python 2 and 3.
-pip_both () {
-  pip-2.7 install $1
-  pip-3.2 install $1
-}
-
 # The actual script. Comment out lines to disable parts.
-virtualenv
+mkdir tmp
+cd tmp
 py3k
+cd ..
+rm -r tmp
 
 # Packages
 # numpy -- http://numpy.scipy.org
