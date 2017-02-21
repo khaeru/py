@@ -1,7 +1,7 @@
 #!/bin/sh
 # GNOME-Keyring query script
 #
-# Copyright © 2011 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+# Copyright © 2011, 2016 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
 # Made available under the GPLv3 (http://www.gnu.org/licenses/gpl-3.0.html)
 #
 # Usage: gk-query TERM
@@ -18,38 +18,31 @@
 #
 # This file is a wrapping shell script; the file gk-query.py is also required.
 
-# check arguments
+# Check arguments
 if [ $# -ne 1 ]; then
   echo "Usage: $0 SEARCH_STRING"
   exit 1
 fi
 
-# start necessary services
-if [ "$GNOME_KEYRING_PID" = "" ]; then
-  # gnome-keyring-daemon is not running; must start it
-  RUN_GKD=yes
-  if [ "$DBUS_SESSION_BUS_ADDRESS" = "" ]; then
-    # the DBus session bus is not running; must start it
-    RUN_DBUS=yes
-    if [ "$DISPLAY" = "" ]; then
-      # $DISPLAY is not set; dbus-launch fails without it
-      export DISPLAY=:0
-    fi
-    # the option --exit-with-session is not used here, because the terminal
-    #   seems to become unresponsive or randomly eat characters. As a result,
-    #   -TERM needs to be used below instead of -HUP to terminate the session
-    #   bus. stderr is redirected to suppress a complaint when $DISPLAY is faked
-    #   (above)
-    export `dbus-launch 2>/dev/null`
+# Start necessary services
+if [ "$DBUS_SESSION_BUS_ADDRESS" = "" ]; then
+  # The DBus session bus is not running; must start it
+  RUN_DBUS=yes
+  if [ "$DISPLAY" = "" ]; then
+    # $DISPLAY is not set; dbus-launch fails without it
+    export DISPLAY=:0
   fi
-  export `gnome-keyring-daemon`
+  # The option --exit-with-session is not used here, because the terminal
+  #   seems to become unresponsive or randomly eat characters. As a result,
+  #   -TERM needs to be used below instead of -HUP to terminate the session
+  #   bus. stderr is redirected to suppress a complaint when $DISPLAY is faked
+  #   (above)
+  export `dbus-launch 2>/dev/null`
 fi
 
-# directory containing this wrapper and the script
-DIR="$( cd "$( dirname "$0" )" && pwd )"
-# invoke the actual script
-env python3 $DIR/gk-query.py $1
+# Invoke the actual script, which unlocks the keyring if necessary
+$0.py $1
 
-# kill the services if they were started by this script
-[ -z "$RUN_GKD" ] || kill -HUP $GNOME_KEYRING_PID
-[ -z "$RUN_DBUS" ] || kill -TERM $DBUS_SESSION_BUS_PID
+# Kill the services if they were started by this script
+[ -z "$RUN_DBUS" ] || kill -QUIT $DBUS_SESSION_BUS_PID
+
