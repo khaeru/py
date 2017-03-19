@@ -1,4 +1,0 @@
-#!/bin/sh
-# Clean all rubber build files for all LaTeX source files in
-# the current directory.
-rubber --clean --texpath $TEXINPUTS *.tex
