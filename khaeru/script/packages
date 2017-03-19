@@ -1,0 +1,18 @@
+#!/bin/sh
+
+DIR=$HOME/vc/dotfiles
+
+case "$1" in
+  apt-freeze)
+    apt-mark showmanual python*-* >$DIR/apt/install.python
+    apt-mark showmanual r-* >$DIR/apt/install.R
+    apt-mark showmanual | sed -n '/^\(lib\|python.*-\|r-\|ubuntu-\)/!p' >$DIR/apt/install
+    ;;
+  pip-freeze)
+    pip3 freeze --user --all | grep -v "^-e" >$DIR/pip3/install
+    ;;
+  *)
+    echo "use one of: apt-freeze, pip-freeze"
+    exit 1
+    ;;
+esac
