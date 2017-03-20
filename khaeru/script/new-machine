@@ -1,4 +1,6 @@
 #!/bin/sh
+# Configure a new Ubuntu machine
+
 clone () {
   if [ -z "$2" ]; then
     TARGET=`basename $1`
