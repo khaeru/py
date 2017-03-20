@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+import glob
+from itertools import starmap, tee
+import os
+from os.path import join, splitext
+
+import click
+
+COMMIT = 'asdfasdf'
+TOKEN = 'PPGkr1uZxfYAAAAAAAANdzSmApIna_27HZ2K4l-4zRaXD_jTAMJdQb0BEHhRHTj0'
+
+
+def list_files():
+    """Read the configuration."""
+    import yaml
+
+    with open('.dropbox.yaml') as f:
+        config = yaml.load(f)
+
+    target_dir = config.pop('directory')
+
+    def _add_commit_hash(entry):
+        remote = splitext(entry[1])
+        return entry[0], '%s_%s%s' % (remote[0], COMMIT, remote[1])
+
+    def _add_dir(entry, dirname):
+        return entry[0], join(dirname, entry[1])
+
+    result = []
+    for group in config.pop('groups', []):
+        if isinstance(group, str):
+            group = {'files': group}
+
+        files = glob.iglob(group['files'])
+        files = zip(*tee(files, 2))
+
+        if group.get('commit_hash', False):
+            files = map(_add_commit_hash, files)
+
+        subdir = group.get('subdir', None)
+        if subdir is not None:
+            files = map(lambda e: _add_dir(e, subdir), files)
+
+        result.extend(files)
+
+    # Add the overall target directory
+    result = map(lambda e: _add_dir(e, target_dir), result)
+
+    return list(result)
+
+
+def print_files(files):
+    for f in files:
+        print('%s\n\t→ %s' % f)
+
+
+def upload_files(token, files):
+    import dropbox
+
+    dbx = dropbox.Dropbox(token)
+
+    # for entry in dbx.files_list_folder(target_dir).entries:
+    #     print(entry)
+
+
+@click.command()
+@click.option('-n', '--dry-run', is_flag=True)
+@click.option('--api-token', default=os.environ.get('DROPBOX_API_TOKEN', None))
+def cli(dry_run, api_token):
+    files = list_files()
+
+    print_files(files)
+
+    if not dry_run:
+        upload_files(api_token, files)
+
+
+if __name__ == '__main__':
+    cli()
