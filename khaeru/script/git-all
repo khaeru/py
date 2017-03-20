@@ -2,6 +2,9 @@
 # Locate directories under $HOME which are Git-controlled and have uncommitted
 # changes.
 # Ignore some paths that cause errors to be printed, or are not of interest
+
+# TODO convert to a Python script
+
 PRUNE="-path */.cache* -o -path *.dbus -o -path ./vc/Dropbox"
 if [ -z "$1" ]; then
   BASE=$HOME
