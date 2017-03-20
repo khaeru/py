@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 import glob
-from itertools import starmap, tee
+from itertools import tee
 import os
 from os.path import join, splitext
 
 import click
 
 COMMIT = 'asdfasdf'
-TOKEN = 'PPGkr1uZxfYAAAAAAAANdzSmApIna_27HZ2K4l-4zRaXD_jTAMJdQb0BEHhRHTj0'
 
+# PPGkr1uZxfYAAAAAAAANecf3IwCa8asyrZKFj0T7p9_PmwgfMtRcATOaz5HsOB9A
 
 def list_files():
-    """Read the configuration."""
+    """Read the configuration.
+
+    Return an iterable of (local, remote) tuples, where local is the local path
+    to upload, and remote is the target path on Dropbox.
+    """
     import yaml
 
     with open('.dropbox.yaml') as f:
@@ -55,12 +59,41 @@ def print_files(files):
 
 
 def upload_files(token, files):
-    import dropbox
+    from dropbox import Dropbox
+    from dropbox.files import (
+        CommitInfo,
+        UploadSessionCursor,
+        UploadSessionFinishArg,
+        WriteMode,
+        )
 
-    dbx = dropbox.Dropbox(token)
+    dbx = Dropbox(token)
 
-    # for entry in dbx.files_list_folder(target_dir).entries:
-    #     print(entry)
+    entries = []
+
+    for n, entry in enumerate(files):
+        print('Uploading %s\n\t→ %s' % entry)
+
+        local, remote = entry
+
+        with open(local, 'rb') as f:
+            if n == 0:
+                uss_result = dbx.files_upload_session_start(f.read())
+                cursor = UploadSessionCursor(uss_result.session_id, offset=0)
+            else:
+                dbx.files_upload_session_append_v2(f.read(), cursor,
+                                                   close=(n + 1 == len(files)))
+
+            ci = CommitInfo(path=remote, mode=WriteMode('overwrite', None))
+            usfa = UploadSessionFinishArg(cursor, ci)
+            print(usfa)
+            entries.append(usfa)
+
+            cursor.offset += f.tell()
+
+    print('Finalizing.')
+
+    dbx.files_upload_session_finish_batch(entries)
 
 
 @click.command()
