@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+"""Upload files to Dropbox.
+
+db-push reads a YAML control file .dropbox.yaml in the current directory and
+uses it to generate a list of files and upload them to Dropbox. For example:
+
+    \b
+    '/Target/path':
+      - 'fn1.txt'
+      - '*.pdf'
+      - 'a_directory'
+      - files: '*.jpg'
+        subdir: bar
+      - files: '*.log'
+        name_template: '%(base)s.txt'
+    '/Another/path':
+      - 'fn2.txt'
+
+- The file 'fn1.txt', all files matching the wildcard '*.pdf', and the contents
+  of 'a_directory' are uploaded to the Dropbox folder 'Target/path'.
+
+- The file 'fn2.txt' is uploaded to 'Another/path'.
+
+- Files matching '*.jpg' are uploaded to 'Target/path/bar'.
+
+- Files matching '*.log' are uploaded to 'Target/path', with reformatted names.
+  The name_template string may contain zero or more of:
+
+  - base: the base of the filename, without directory extension.
+
+  - ext: the filename extension, including the '.'.
+
+  - commit: the first 7 characters of the latest git commit hash for the
+    current repository, plus a '+' if the current directory (NOT the entire
+    repository) is 'dirty', i.e. has any uncommitted changes.
+
+Paths beginning with / or * should be quoted, as these are special characters
+in YAML.
+
+db-push requires a Dropbox API token to be specified in a configuration file or
+on the command line. See
+https://www.dropbox.com/developers/documentation/python#tutorial
+
+"""
+import glob
+import itertools
+import os
+from os.path import basename, getsize, join, normpath, splitext
+
+import click
+from dropbox import Dropbox
+from dropbox.files import WriteMode
+from git import Repo
+import yaml
+
+
+__version__ = 1.0
+
+
+def _add_remote_dir(entry, dirname):
+    """Prepends *dirname* to the remote path of *entry*."""
+    return entry[0], join(dirname, entry[1])
+
+
+def _format_name(entry, args):
+    """Format the remote name in *entry*.
+
+    *args* is dict()-like, containing the key '_template' with the name
+    template.
+    """
+    # Additional names for formatting
+    local, remote = entry
+    base, ext = splitext(local)
+    args.update(dict(local=local, remote=remote, base=base, ext=ext))
+
+    return local, args['_template'] % args
+
+
+def _get_commit_hash():
+    """Return the first 7 digits of the git commit hash in the current repo.
+
+    A '+' is appended if the current directory is dirty.
+    """
+    repo = Repo('.', search_parent_directories=True)
+    result = repo.head.commit.tree.hexsha[:7]
+    if repo.is_dirty('.'):
+        result += '+'
+    return result
+
+
+def _expand_dir(name):
+    """Expand *name*, if it is a directory, to an iterable of filenames."""
+    result = []
+    for dirpath, _, filenames in os.walk(name):
+        result.append([join(dirpath, fn) for fn in filenames])
+
+    # If name was a regular file; result will be empty
+    return itertools.chain(*result) if len(result) else [name]
+
+
+def _norm_remote(entry):
+    """Normalize Dropbox paths by removing "/../" and similar."""
+    return entry[0], normpath(entry[1])
+
+
+def _progressbar(iterator):
+    """Prepare a click.progressbar for uploads."""
+    def _show(item):
+        """Callback: show the name of the local file while it is uploaded."""
+        if item is not None:
+            return basename(item[0])
+
+    return click.progressbar(iterator,
+                             label='Uploading %d files' % len(iterator),
+                             width=20,
+                             item_show_func=_show)
+
+
+def list_files(config):
+    """Read the configuration.
+
+    Return an iterable of (local, remote) tuples, where local is the local path
+    to upload, and remote is the target path on Dropbox. Each of these tuples
+    is an 'entry'.
+
+    *config* should be dict-like, containing keys and values as described in
+    the help text.
+    """
+    result = []
+
+    # Iterate over top-level YAML mappings
+    for target_dir, groups in config.items():
+        # Iterate over groups with a common target directory
+        for group in groups:
+            # Make sure group['files'] contains a list of patterns
+            if isinstance(group, str):
+                group = {'files': [group]}
+            elif isinstance(group['files'], str):
+                group['files'] = [group['files']]
+
+            # Determine files matching the patterns
+            files = itertools.chain(*[glob.iglob(pattern, recursive=True)
+                                      for pattern in group['files']])
+
+            # Expand any director(ies)
+            files = itertools.chain(*map(_expand_dir, files))
+
+            # Double the list of filenames to (local, remote), identical for
+            # now
+            files = zip(*itertools.tee(files, 2))
+
+            # Apply the name template, if any
+            name_template = group.get('name_template', False)
+            if name_template:
+                # Common fields
+                fields = {
+                    '_template': name_template,
+                    'hash': _get_commit_hash(),
+                    }
+                files = [_format_name(e, fields) for e in files]
+
+            # Set the target subdirectory, if any
+            subdir = group.get('subdir', False)
+            if subdir:
+                files = [_add_remote_dir(e, subdir) for e in files]
+
+            # Add the overall target directory and normalize remote paths
+            files = [_add_remote_dir(e, target_dir) for e in files]
+            files = map(_norm_remote, files)
+
+            # Extend the overall list of entries
+            result.append(files)
+
+    # Sort the entries
+    return sorted(itertools.chain(*result))
+
+
+def print_files(files):
+    """Print the names of files to be uploaded, and 'fake' the upload."""
+    from time import sleep
+
+    for entry in files:
+        print('%s\n\t→ %s' % entry)
+
+    with _progressbar(files) as files_:
+        for entry in files_:
+            sleep(0.05)
+
+
+def upload_files(token, files):
+    """Upload the *files*."""
+    dbx = Dropbox(token)
+
+    wm = WriteMode('overwrite', None)
+
+    with _progressbar(files) as files_:
+        for local, remote in files_:
+            if getsize(local) > 150 * 1024**2:
+                print('Skipping file larger than 150 MB:\n\t%s' % local)
+
+            with open(local, 'rb') as f:
+                dbx.files_upload(f.read(), remote, mode=wm)
+
+
+@click.command(help=__doc__)
+@click.option('--api-token', default=None, metavar='TOKEN',
+              help='Dropbox API token.')
+@click.option('--config', 'cli_config', metavar='FILE',
+              default=os.environ.get('DBPUSH_CONFIG', None),
+              help='Configuration file containing the Dropbox API token.')
+@click.option('-n', '--dry-run', is_flag=True,
+              help="Only show what would be done; don't connect to Dropbox.")
+def cli(api_token, cli_config, dry_run):
+    """Main command-line interface."""
+    if api_token is None:
+        if cli_config is None:
+            raise click.UsageError('Cannot determine Dropbox API token.')
+        else:
+            with open(cli_config) as f:
+                api_token = yaml.load(f)['token']
+
+    with open('.dropbox.yaml') as f:
+        files_config = yaml.load(f)
+
+    files = list_files(files_config)
+
+    if dry_run:
+        print_files(files)
+        return
+
+    upload_files(api_token, files)
+
+
+if __name__ == '__main__':
+    cli()
