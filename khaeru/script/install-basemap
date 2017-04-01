@@ -1,8 +1,10 @@
 #!/bin/sh
 # Install the latest version of Basemap
 
+# Ensure the libgeos headers are installed
+sudo apt install libgeos-dev
+
 # Symlink libgeos, since the Basemap installer doesn't detect it correctly
-sudo apt install libgeos-3.5.0
 LIB=/usr/lib/x86_64-linux-gnu
 sudo ln -fs $LIB/libgeos-3.5.0.so $LIB/libgeos.so
 
