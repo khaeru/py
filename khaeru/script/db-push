@@ -49,7 +49,7 @@ https://www.dropbox.com/developers/documentation/python#tutorial
 import glob
 import itertools
 import os
-from os.path import basename, getsize, join, normpath, splitext
+from os.path import basename, getsize, join, normpath, relpath, splitext
 
 import click
 from dropbox import Dropbox
@@ -86,8 +86,9 @@ def _get_commit_hash():
     A '+' is appended if the current directory is dirty.
     """
     repo = Repo('.', search_parent_directories=True)
-    result = repo.head.commit.tree.hexsha[:7]
-    if repo.is_dirty('.'):
+    result = repo.head.commit.hexsha[:7]
+    path = relpath(os.getcwd(), start=repo.working_dir)
+    if repo.is_dirty(path=path):
         result += '+'
     return result
 
