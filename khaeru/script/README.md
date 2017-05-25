@@ -25,8 +25,9 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 - `install-gams-api` — install the GAMS APIs.
 - `install-latexmk` — install the latest version of Latexmk from CTAN.
 - `mailman-scrape`
-- `packages` — generate lists of [apt](https://wiki.debian.org/Apt) and [pip](https://pip.pypa.io) packages.
 - `new-machine` — configure a new Ubuntu machine.
+- `packages` — generate lists of [apt](https://wiki.debian.org/Apt) and [pip](https://pip.pypa.io) packages.
+- `ssh-try HOST1 HOST2` — SSH to the first host that connects successfully.
 
 ### Python
 
