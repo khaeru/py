@@ -16,7 +16,7 @@ COLORS = {
     'D': fg.RED,
     }
 
-FILTER = re.compile('vc/other')
+FILTER = re.compile('(\.local/share/Trash|vc/other)')
 
 
 def find_repos():
