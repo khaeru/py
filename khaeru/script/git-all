@@ -1,19 +1,73 @@
-#!/bin/sh
-# Locate directories under $HOME which are Git-controlled and have uncommitted
-# changes.
-# Ignore some paths that cause errors to be printed, or are not of interest
+#!/usr/bin/env python3
+"""Display information about unclean Git repositories under $HOME."""
+# TODO query remotes to *show* if commits can be pulled
+# TODO actually pull with user confirmation
 
-# TODO convert to a Python script
+import os
+import re
 
-PRUNE="-path */.cache* -o -path *.dbus -o -path ./vc/Dropbox"
-if [ -z "$1" ]; then
-  BASE=$HOME
-else
-  BASE=$1
-fi
-for d in $(find $BASE -type d \( $PRUNE \) -prune -o -name .git -print); do
-  changed=$(git --git-dir=$d --work-tree=$(dirname $d) status -z | sort -z | cut -zc1-2 | uniq -cz)
-  if [ -n "$changed" ]; then
-    echo $(dirname $d) "\n$changed"
-  fi
-done
+from colorama import Fore as fg, Style
+from git import Repo
+
+HOME = os.path.expanduser('~')
+
+COLORS = {
+    'M': fg.YELLOW,
+    'D': fg.RED,
+    }
+
+FILTER = re.compile('vc/other')
+
+
+def find_repos():
+    for dirpath, dirnames, _ in os.walk(HOME):
+        if '.git' in dirnames:
+            yield Repo(dirpath)
+
+
+def diff_lines(name, diffs):
+    if len(diffs) == 0:
+        return
+
+    print('  %s' % name)
+
+    for d in diffs:
+        path = d.a_path
+        color = COLORS[d.change_type]
+        print(color + '    %s' % path + Style.RESET_ALL)
+
+
+clean = 0
+
+for repo in find_repos():
+    if repo.is_dirty(untracked_files=True):
+        try:
+            branch = 'on: %s' % repo.active_branch
+        except TypeError:
+            branch = 'detached HEAD'
+
+        print('\n~%s (%s)' % (
+            repo.working_dir[len(HOME):],
+            branch))
+
+        if FILTER.search(repo.working_dir):
+            continue
+
+        # Staged
+        diff_lines('Staged', repo.index.diff(repo.head.commit))
+
+        # Modified in the working tree
+        diff_lines('Working tree', repo.index.diff(None))
+
+        # Untracked files
+        untracked = repo.untracked_files
+
+        if len(untracked) > 20:
+            print('  (%d untracked files not listed)' % len(untracked))
+        elif len(untracked) > 0:
+            print('    ' + fg.GREEN + '\n    '.join(untracked)
+                  + Style.RESET_ALL)
+    else:
+        clean += 1
+
+print('\n%d other clean repositories\n' % clean)

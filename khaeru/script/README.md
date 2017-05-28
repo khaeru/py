@@ -19,7 +19,6 @@ Add the directory to your `~/.profile` or `~/.bash_profile` with a line like:
 Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `dash`, not `bash`. Read more: [1](https://en.wikipedia.org/wiki/Almquist_shell#dash:_Ubuntu.2C_Debian_and_POSIX_compliance_of_Linux_distributions), [2](https://wiki.ubuntu.com/DashAsBinSh).
 
 - `biogeme.sh`, `biosim.sh` — wrappers for [Biogeme](http://biogeme.epfl.ch).
-- `git-all` — locate directories under `$HOME` which are [git](https://git-scm.com)-controlled and have uncommitted changes.
 - `gpg-edit` — like `sudoedit`, but for [GPG](https://www.gnupg.org)-encrypted files.
 - `gpg-sqlite` — like `gpg-edit`, but for [SQLite](http://www.sqlite.org) databases.
 - `install-gams-api` — install the GAMS APIs.
@@ -35,6 +34,7 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 - `ceic` — process data exported from the CEIC database.
 - `db-push` — upload files using the [Dropbox Python SDK](https://www.dropbox.com/developers/documentation/python).
 - `disqus-export`
+- `git-all` — locate directories under `$HOME` which are [git](https://git-scm.com)-controlled and have uncommitted changes.
 - `imgdupe` — find image files in a set of directories with matching *names* and *appearance*, but possibly different *EXIF metadata* or *size*.
 - `kdx` — manage Kindle DX collections according to directory structure.
 - `maildupe` — choose duplicate files to save/remove from a Maildir mailbox, for clumsy users of [OfflineIMAP](http://offlineimap.org).
