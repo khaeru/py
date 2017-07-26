@@ -38,6 +38,7 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 - `imgdupe` — find image files in a set of directories with matching *names* and *appearance*, but possibly different *EXIF metadata* or *size*.
 - `kdx` — manage Kindle DX collections according to directory structure.
 - `maildupe` — choose duplicate files to save/remove from a Maildir mailbox, for clumsy users of [OfflineIMAP](http://offlineimap.org).
+- `pim` — various functions for personal information management.
 - `reas_hdf5.py` — convert the [Regional Emissions inventory in ASia (REAS) v2.1](http://www.nies.go.jp/REAS/) into a [HDF5 file](http://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5). **Broken.**
 - `task-dedupe` — snippets to assist with removing duplicate tasks in [Taskwarrior](http://taskwarrior.org).
 - `task-notify` — shameless lift from  https://github.com/flickerfly/taskwarrior-notifications.

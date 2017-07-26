@@ -1,0 +1,90 @@
+#!/usr/bin/env python3
+"""Personal information management utility
+© 2017 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+Licensed under the GNU GPL v3.
+
+"""
+from subprocess import call, check_output, run, PIPE
+
+import click
+
+
+@click.group(help=__doc__)
+def cli():
+    pass
+
+
+@cli.command('read')
+@click.argument('key')
+@click.option('--no-file', is_flag=True,
+              help='Continue even if there is no local file.')
+@click.option('--note/--no-note', 'create_note', default=False,
+              help='Create and/or open a Zim note (default: no).')
+@click.option('--timer', 'start_timer', is_flag=True,
+              help='Start tracking with timewarrior.')
+def read_command(key, no_file, create_note, start_timer):
+    """Read an article with bibliography entry KEY."""
+    from configparser import ConfigParser
+    from os.path import exists, expanduser, join
+
+    from xdg.BaseDirectory import xdg_config_home
+
+    result = call(['bib', 'read', key])
+
+    if result > 0 and not no_file:
+        return
+
+    # Read the Zim configuration
+    zim_config_path = join(xdg_config_home, 'zim', 'notebooks.list')
+    with open(zim_config_path, 'r') as f:
+        zim_config = ConfigParser()
+        zim_config.read_file(f)
+
+    # Path to the notebook contents
+    notes_path = expanduser(zim_config['NotebookList']['1'])
+    # Path to the note assciated with KEY (may not exist)
+    note_path = join(notes_path, 'Reading_notes', '{}.txt'.format(key))
+    # Name of the notebook
+    notebook = zim_config['Notebook 1']['name']
+    # Name of the note associated with KEY (may not exist)
+    note = 'Reading notes:{}'.format(key)
+
+    if exists(note_path):
+        # Note exists; open it
+        call(['zim', notebook, note])
+    else:
+        if not create_note:
+            # Note doesn't exist; user doesn't want to create it
+            print('No note.')
+        else:
+            print('Creating note in {}'.format(note_path))
+            with open(note_path, 'wb') as f:
+                # Use the bib script to get a template for the note
+                f.write(check_output(['bib', 'note_template', key]))
+
+            # Open the note
+            call(['zim', notebook, note])
+
+    # Start timewarrior, if desired
+    if start_timer:
+        call(['timew', 'start', 'Reading', key])
+
+
+@cli.command()
+def weeklog():
+    """Weekly log."""
+    info = [
+        'Completed tasks:',
+        run(['task', '+COMPLETED', 'end.after:socw', 'all'],
+            stdout=PIPE).stdout.decode(),
+        'Time worked:',
+        check_output(['timew', 'summary', 'sow', '-', 'now']).decode(),
+        'Untracked gaps:',
+        check_output(['timew', 'gaps', 'sow', '-', 'now']).decode(),
+        ]
+
+    print('\n'.join(info))
+
+
+if __name__ == '__main__':
+    cli()
