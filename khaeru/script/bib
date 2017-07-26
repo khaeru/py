@@ -2,19 +2,24 @@
 """BibTeX database utilities
 © 2016–2017 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
 Licensed under the GNU GPL v3.
+
+Reads a file .bibpy.yaml in the current directory.
 """
 from collections import namedtuple
+from copy import deepcopy
 from glob import iglob
-from itertools import filterfalse, zip_longest
+from itertools import chain, filterfalse, zip_longest
 import os
 import os.path
 import re
+import readline
 
 import bibtexparser
-# import bibtexparser.customization as btp
+from bibtexparser.customization import author
 from bibtexparser.bparser import BibTexParser
 from bibtexparser.bwriter import BibTexWriter
 import click
+from click import ClickException
 import yaml
 
 
@@ -76,17 +81,18 @@ class BibItem(dict):
 class BibCLIContext:
     def __init__(self):
         self.config = DEFAULT_CONFIG
-        try:
-            with open('.bibpy.yaml') as f:
-                self.config.update(yaml.load(f))
-        except FileNotFoundError:
-            pass
 
         self.keywords = set()
 
-    def init(self, database, verbose):
-        # # Parse arguments
-        # self.args = self.argument_parser.parse_args()
+    def init(self, database, verbose, path):
+        try:
+            config_fn = os.path.join(path, '.bibpy.yaml')
+            with open(config_fn) as f:
+                self.config.update(yaml.load(f))
+            self.config['path'] = path
+        except FileNotFoundError:
+            pass
+
         self.verbose = verbose
 
         # Set up the BibTeX parser
@@ -97,7 +103,10 @@ class BibCLIContext:
                                                  self.keywords.update,
                                                  self.config)
         # Parse the database
-        self.db = bibtexparser.load(open(database, 'r'), parser=parser)
+        database = self.config.get('database', database)
+        database_fn = os.path.join(path, database)
+        self.db = bibtexparser.load(open(database_fn, 'r'),
+                                    parser=parser)
 
     def cmd_config(self, cmd):
         return self.config.get(cmd, {})
@@ -107,19 +116,17 @@ class BibCLIContext:
 pass_context = click.make_pass_decorator(BibCLIContext, ensure=True)
 
 
-@pass_context
-def default_db(ctx):
-    """Return the default database path."""
-    return ctx.config.get('database', None)
-
-
 @click.group(help=__doc__)
-@click.option('--database', type=click.Path('r'), default=default_db)
+@click.option('--database', type=click.Path('r'),
+              help='Filename for the BibTeX database.')
 @click.option('--verbose', is_flag=True, help='More detailed output.')
+@click.option('--path', 'path', type=click.Path('r'),
+              envvar='BIBPY_PATH', default='.',
+              help='Path to the folder containing the database.')
 @pass_context
-def cli(ctx, database, verbose):
+def cli(ctx, database, verbose, path):
     # Initialize the context (load the database)
-    ctx.init(database, verbose)
+    ctx.init(database, verbose, path)
 
 
 def _add_clean(d):
@@ -133,7 +140,7 @@ def _add_clean(d):
 
     if 'doi' in d:
         # Show a bare DOI, not a URL
-        d['doi'] = d['doi'].replace('http://dx.doi.org/', '')
+        d['doi'] = re.sub('https?://(dx.)?doi.org/', '', d['doi'])
         # Don't show eprint or url fields if a DOI is present
         # (e.g ScienceDirect)
         d.pop('eprint', None)
@@ -156,12 +163,69 @@ def _add_clean(d):
     return d
 
 
+def guess_key(entry):
+    entry = author(deepcopy(entry))
+    if len(entry['author']) > 2:
+        a = entry['author'][0].split(',')[0].lower()
+    else:
+        a = '-'.join([a.split(',')[0].lower() for a in entry['author']])
+    return '%s-%s' % (a, entry['year'])
+
+
+def clean_str(s):
+    # Add a trailing comma on the last entry:
+    # https://github.com/sciunto-org/python-bibtexparser/issues/47
+    s = re.sub(r'([^,])(\s*}\s*)\Z', r'\1,\2', s)
+    # Compress multiple 'keywords'
+    parts = re.split(r'(keywords)\s=\s[{"]([^}"]*)[}"],', s)
+    result = ''
+    keywords = []
+    take = False
+    for p in parts:
+        if p == 'keywords':
+            take = True
+            continue
+        elif take:
+            keywords.append(p)
+            take = False
+            continue
+        elif p.strip() == '':
+            continue
+
+        if len(keywords):
+            result += 'keywords = {%s},' % '; '.join(keywords)
+        print('part: <%s>' % p)
+        result += p
+    return result
+
+
+# https://stackoverflow.com/a/8505387/2362198
+def input_with_prefill(prompt, text):
+    def hook():
+        readline.insert_text(text)
+        readline.redisplay()
+    readline.set_pre_input_hook(hook)
+    result = input(prompt)
+    readline.set_pre_input_hook()
+    return result
+
+
 @cli.command(name='import')
+@click.argument('paths', nargs=-1, type=click.Path(exists=True))
 @pass_context
-def import_entries(ctx):
-    """(DEV) Read new entries into the database."""
-    # Directory from which to import entries
-    add_dir = ctx.cmd_config('add').get('path', 'import')
+def import_entries(ctx, paths):
+    """(DEV) Read new entries into the database.
+
+    PATHS may be zero or more .bib files or directories containing .bib files
+    to import.
+    """
+    # If no files or
+    if len(paths) == 0:
+        # Directory from which to import entries
+        paths = [ctx.cmd_config('import').get('path', '.')]
+
+    paths = [os.path.join(p, '*.bib') if os.path.isdir(p) else p
+             for p in paths]
 
     # A parser for reading entries
     parser = BibTexParser()
@@ -170,27 +234,28 @@ def import_entries(ctx):
 
     # A writer for converting entries back to strings
     writer = BibTexWriter()
+    writer.indent = '\t'
 
     # namedtuple to imitate a class with these attributes
     _dbnt = namedtuple('bdb', ['comments', 'entries', 'preambles', 'strings'])
 
     def to_string(entry):
         """Convert [entry] to a string."""
-        # Create a fake 'database' with only one writer.
+        # Create a fake 'database' with only one entry.
         return writer.write(_dbnt([], [entry], [], {}))
 
     # File for imported entries
     f_imported = open('added.bib', 'a')
 
     # Iterate over files in the add_dir
-    for fn in iglob(os.path.join(add_dir, '*.bib')):
+    for fn in chain(*map(iglob, paths)):
         os.system('clear')
         print('Importing', fn, end='\n\n')
 
         # Read and parse the file
         with open(fn, 'r') as f:
             s = f.read()
-            e = parser.parse(s).entries[0]
+            e = parser.parse(clean_str(s)).entries[0]
             abstract = e.pop('abstract', None)
 
         print('Raw:', s)
@@ -201,8 +266,9 @@ def import_entries(ctx):
 
         # Ask user for a key
         while True:
-            key = input('\nEnter key for imported entry '
-                        '([Enter] to skip, [Q]uit): ')
+            key = input_with_prefill('\nEnter key for imported entry '
+                                     '(blank to skip, [Q]uit): ',
+                                     guess_key(e))
             if key in ctx.db.entries_dict:
                 print('Key already exists.')
             else:
@@ -324,6 +390,63 @@ def check_files(ctx, fmt):
 def kw_list(ctx):
     """List all keywords appearing in entries."""
     print('\n'.join(sorted(ctx.keywords)))
+
+
+note_string = """Content-Type: text/x-zim-wiki
+Wiki-Format: zim 0.4
+Creation-Date: {date}
+
+====== {author} {year} ======
+//{title}//
+Created {date_text}
+
+"""
+
+
+@cli.command()
+@click.argument('key')
+@pass_context
+def note_template(ctx, key):
+    """Return the template for a Zim note about entry KEY."""
+    from datetime import datetime, timezone
+    entry = author(ctx.db.entries_dict.get(key, None))
+
+    def surname(index):
+        return entry['author'][index].split(',')[0]
+
+    now = datetime.now(timezone.utc).astimezone().replace(microsecond=0)
+
+    values = {
+        'date': now.isoformat(),
+        'date_text': now.strftime('%A %d %B %Y'),
+        'year': entry['year'],
+        'title': entry['title'],
+        }
+
+    if len(entry['author']) > 2:
+        values['author'] = surname(0) + ' et al.'
+    else:
+        values['author'] = '{} & {}'.format(surname(0), surname(1))
+
+    print(note_string.format(**values))
+
+
+@cli.command('read')
+@click.argument('key')
+@pass_context
+def read_command(ctx, key):
+    """Open the localfile(s) associated with KEY for reading."""
+    entry = ctx.db.entries_dict.get(key, None)
+
+    if entry is None:
+        raise ClickException("no entry with key '{}'.".format(key))
+    elif 'localfile' not in entry:
+        raise ClickException("entry '{}' has no localfile field."
+                             .format(key))
+
+    for fn in entry['localfile']:
+        fn = os.path.join(ctx.config['path'], fn)
+        os.system('xdg-open "{}"'.format(fn))
 
 
 @cli.command()
