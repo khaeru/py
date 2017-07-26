@@ -41,7 +41,7 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 - `pim` — various functions for personal information management.
 - `reas_hdf5.py` — convert the [Regional Emissions inventory in ASia (REAS) v2.1](http://www.nies.go.jp/REAS/) into a [HDF5 file](http://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5). **Broken.**
 - `task-dedupe` — snippets to assist with removing duplicate tasks in [Taskwarrior](http://taskwarrior.org).
-- `task-notify` — shameless lift from  https://github.com/flickerfly/taskwarrior-notifications.
+- `task-notify` — similar to https://github.com/flickerfly/taskwarrior-notifications, but in Python, and also reports active time from Taskwarrior.
 - `toggle-md0` — in Ubuntu 15.10, gnome-disk-utility [removed md RAID support](https://git.gnome.org/browse/gnome-disk-utility/commit/?id=820e2d3d325aef3574e207a5df73e7480ed41dda); use this with a .desktop file to have a GUI way of starting/stopping an array.
 - `xps13` — tweaks for Ubuntu on an old (~2012) Dell XPS 13. Most of these are no longer needed.
 
