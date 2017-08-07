@@ -12,8 +12,10 @@ from git import Repo
 HOME = os.path.expanduser('~')
 
 COLORS = {
+    'A': fg.RED,
     'M': fg.YELLOW,
-    'D': fg.RED,
+    'D': fg.GREEN,
+    'R': fg.CYAN,
     }
 
 FILTER = re.compile('(\.local/share/Trash|vc/other)')
@@ -33,7 +35,7 @@ def diff_lines(name, diffs):
 
     for d in diffs:
         path = d.a_path
-        color = COLORS[d.change_type]
+        color = COLORS[d.change_type[0]]
         print(color + '    %s' % path + Style.RESET_ALL)
 
 
