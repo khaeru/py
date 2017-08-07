@@ -50,6 +50,7 @@ def stop_cb(*args):
 
 
 def closed_cb(*args):
+    obj.close()
     Notify.uninit()
     Gtk.main_quit()
 
