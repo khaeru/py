@@ -387,9 +387,42 @@ def check_files(ctx, fmt):
 
 @cli.command()
 @pass_context
-def kw_list(ctx):
-    """List all keywords appearing in entries."""
-    print('\n'.join(sorted(ctx.keywords)))
+def curl(ctx):
+    """Generate input for `curl -K -`
+
+    For each entry in the database, lines are output that specify the curl
+    arguments --url, --output, and --time-cond. This output can be piped
+    to
+    """
+    template = '\n'.join(['url="{0}"', 'output="{1}"', 'time-cond="{1}"'])
+
+    for e in ctx.db.entries:
+        url = e.get('url', None)
+        localfile = e.get('localfile', None)
+        if url is None and localfile is None:
+            continue
+        print(template.format(url, localfile[0]))
+
+
+@cli.command('list')
+@click.argument('field')
+@click.option('--sort', is_flag=True)
+@pass_context
+def list_command(ctx, field, sort):
+    """List all unique values of FIELD in the database."""
+    values = set()
+    for e in ctx.db.entries:
+        value = e.get(field, None)
+        if value is None:
+            continue
+        elif not isinstance(value, list):
+            value = [value]
+        values |= set(value)
+
+    if sort:
+        values = sorted(values)
+
+    print('\n'.join(values))
 
 
 note_string = """Content-Type: text/x-zim-wiki
