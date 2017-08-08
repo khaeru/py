@@ -399,7 +399,7 @@ def curl(ctx):
     for e in ctx.db.entries:
         url = e.get('url', None)
         localfile = e.get('localfile', None)
-        if url is None and localfile is None:
+        if url is None or localfile is None:
             continue
         print(template.format(url, localfile[0]))
 
