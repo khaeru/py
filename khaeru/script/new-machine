@@ -130,6 +130,8 @@ clone khaeru/blog paul.kishimoto.name
 clone khaeru/bibliography Documents/reference
 clone khaeru/data
 clone khaeru/easi
+Rscript -e "devtools::install_local('vc/easi')"
+
 clone khaeru/gb2260
 pip3 install --user --editable vc/gb2260/
 
