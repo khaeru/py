@@ -1,7 +1,19 @@
 #!/bin/sh
 # Configure a new Ubuntu machine
+#
+# Some parts of this script might be better to run manually.
+#
+# Preceding steps required:
+#
+# 1. Add MIT SECURE wireless network, and register on MIT Ethernet network.
+# 2. $ ssh-keygen -t rsa -b 4096 -C "mail@paul.kishimoto.name -- khaeru-laptop"
+# 3. $ cat .ssh/id_rsa.pub
+# 4. Log in to https://github.com using 2FA and add the new key.
+# 5. # apt install git
+# 6. git clone git@github.com:khaeru/scripts.git vc/scripts
 
 clone () {
+  # FIXME this fails for Documents/pub
   if [ -z "$2" ]; then
     TARGET=`basename $1`
   else
@@ -11,78 +23,143 @@ clone () {
   git clone $3 git@github.com:$1.git vc/$TARGET
 }
 
-clone khaeru/dotfiles
-vc/dotfiles/install.sh
-dconf load / < vc/dotfiles/dconf.txt
-gconftool-2 --set --type bool /apps/nautilus/preferences/desktop_is_home_dir true
+install_set () {
+  xargs -a $DF/apt/install.$1 sudo apt install --no-install-recommends
+}
 
-rm -f Examples
+# Tidy contents of default desktop
+rm -f examples.desktop
 rmdir Desktop Downloads Public Templates Videos
 mv Pictures Image
-mkdir -p Documents vc/eppa
+mkdir -p Documents
 
-clone khaeru/blog
-clone khaeru/cjklib
+# Clone personal dotfiles
+DF=vc/dotfiles
+clone khaeru/dotfiles
+vc/dotfiles/install.sh
+. ~/.profile
+
+# Add software sources
+# PPA keys for
+# - flacon
+# - Google Chrome
+# - Google gcsfuse
+# - keybase
+# - skype
+# - webupd8team (Atom)
+# - yubico
+# - git-lfs
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys \
+  f2a61fe5 \
+  d38b4796 \
+  a7317b0f \
+  656d16c7 \
+  df7587c3 \
+  eea14886 \
+  32cba1a9 \
+  d59097ab
+sudo install --mode=644 --owner=root $DF/apt/ppa.list /etc/apt/sources.list.d/ppa.list
+sudo sed -E -i 's/^# (deb .* partner)/\1/' /etc/apt/sources.list
+
+# Install packages
+sudo apt update
+install_set base
+
+# R (before Python in order to install r-base-dev, needed to compile rpy2)
+install_set R
+Rscript - <<EOF
+install.packages(
+  scan('$DF/R/install', character()),
+  repos='https://cloud.r-project.org'
+  )
+EOF
+
+# Python
+install_set python
+pip3 install --user --no-deps --upgrade --requirement $DF/pip3/install
+
+# Purge unwanted packages
+xargs -a $DF/apt/purge sudo apt purge
+sudo apt autoremove --purge
+sudo apt clean
+
+# Configure software
+
+# Atom
+sed -n -E 's/^  "(.*)"/\1/p' $DF/atom/packages.cson | xargs apm install
+
+# ddclient
+sudo install --mode=600 --owner=root $DF/ddclient.conf /etc/ddclient.conf
+
+# GAMS
+# TODO install GAMS
+install-gams-api 24.9.1 _36 pip3 --user
+
+# Gnome Shell
+# Install extra extensions from website
+# - CoverFlow Alt-Tab
+# - Activities Configurator
+clone NicolasBernaerts/ubuntu-scripts.git other/ubuntu-scripts
+install -m 755 vc/other/ubuntu-scripts/ubuntugnome/gnomeshell-extension-manage \
+  .local/bin/
+gnomeshell-extension-manage --install --extension-id 97
+gnomeshell-extension-manage --install --extension-id 358
+
+# Gnome: load settings
+dconf load / < $DF/dconf.txt
+
+# Gnome Terminal
+clone Anthony25/gnome-terminal-colors-solarized
+vc/gnome-terminal-colors-solarized/install.sh <<EOF
+1
+1
+YES
+1
+EOF
+rm -rf dircolors vc/gnome-terminal-colors-solarized
+
+# Latexmk
+install-latexmk
+
+# Taskwarrior
+mkdir -p $HOME/.local/share/task
+
+# Clone git repositories
+clone khaeru/17.310j-fa17
+clone khaeru/blog paul.kishimoto.name
+clone khaeru/bibliography Documents/reference
+clone khaeru/data
+clone khaeru/easi
 clone khaeru/gb2260
+pip3 install --user --editable vc/gb2260/
+
 clone khaeru/notes
-git clone git@github.com:khaeru/publications.git Documents/pub
+clone khaeru/publications Documents/pub --recurse-submodules
 clone khaeru/py-gdx
-clone khaeru/tex
-clone khaeru/trb-adc70
+pip3 install --user --editable vc/py-gdx/
+
+clone khaeru/tex tex --recurse-submodules
+clone khaeru/trb-adc70 trbenergy.org
 
 clone mit-jp/cecp-db
-clone mit-jp/cgem
+clone mit-jp/cge-workshop mit-jp/cge-workshop
+clone mit-jp/cgem mit-jp/cgem
 clone mit-jp/crem
 clone mit-jp/eppa5 eppa/5
 clone mit-jp/eppa6 eppa/6
 clone mit-jp/fleet-model
-clone mit-jp/jp-report-tex
+
+clone transportenergy/database item/database
+clone transportenergy/item2-data item/item2-data
+clone transportenergy/item2-scripts item/item2-scripts
+clone transportenergy/transportenergy.org item/transportenergy.org
 
 clone andreafabrizi/Dropbox-Uploader other/dropbox-uploader
-clone Hightor/gitinfo2 other/gitinfo2
-clone matze/mtheme other/mtheme
-clone Nitron/pelican-alias other/pelican-alias
+clone ralphbean/bugwarrior other/bugwarrior "--branch develop"
+clone khaeru/pelican-alias other/pelican-alias
 clone khaeru/pelican-cite other/pelican-cite
 clone getpelican/pelican-plugins other/pelican-plugins --recursive
 clone getpelican/pelican-themes other/pelican-themes --recursive
-git clone git://git.code.sf.net/p/pgfplots/code vc/other/pgfplots
 
-# Packages
-sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys \
-  5ed1d082 \  # claws-mail
-  f2a61fe5 \  # flacon
-  f8214acd \  # lyx-devel
-  cedf0f40 \  # musicbrainz-developers
-  eea14886 \  # webupd8team
-  32cba1a9 \  # yubico
-  8f7df243 \  # zim
-  d59097ab    # git-lfs
-wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-
-sudo cp vc/dotfiles/apt/ppa.list /etc/apt/sources.list.d/
-# TODO edit /etc/apt/sources.list to uncomment the line:
-#  deb http://archive.canonical.com/ubuntu xenial partner
-sudo apt update
-sudo apt install --no-install-recommends $(cat vc/dotfiles/apt/install | tr "\n" " ")
-sudo apt purge $(cat vc/dotfiles/apt/purge | tr "\n" " ")
-# TODO edit /etc/apt/sources.list.d/ppa.list to remove the line for Google Chrome
-
-# Manually install: anki
-
-# Atom
-apm install --packages-file vc/dotfiles/atom.packages
-
-# Python
-pip2 install --user --no-deps --upgrade --requirement vc/dotfiles/python2.packages
-pip3 install --user --no-deps --upgrade --requirement vc/dotfiles/python3.packages
-
-# ddclient TODO
-
-# Gnome-terminal
-git clone git@github.com:Anthony25/gnome-terminal-colors-solarized.git
-gnome-terminal-colors-solarized/install.sh <<EOF
-1
-1
-YES
-EOF
-rm -rf gnome-terminal-colors-solarized
+# Clean up extra files that may have been created in $HOME
+rm -rf .atom .bash_history .compiz .lesshst .nano .task .taskrc
