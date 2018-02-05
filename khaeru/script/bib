@@ -21,6 +21,7 @@ from bibtexparser.bparser import BibTexParser
 from bibtexparser.bwriter import BibTexWriter
 import click
 from click import ClickException
+from dialog import Dialog
 import yaml
 
 
@@ -211,6 +212,37 @@ def input_with_prefill(prompt, text):
     return result
 
 
+def _select_file(key, path):
+    """Select a file from the directory containing *path*.
+
+    A command-line dialog is displayed. *key* is used to prompt the user.
+    """
+
+    start = os.path.join(os.path.dirname(path), '.')
+
+    d = Dialog()
+    lines, cols = d.maxsize()
+    args = dict(
+        cancel_label='No file',
+        height=lines-10,
+        width=cols,
+        no_shadow=True,
+        no_lines=True,
+        title='Select a file for entry: {}'.format(key))
+
+    while True:
+        result, target = d.fselect(start, **args)
+        if target != start:
+            break
+
+    os.system('clear')
+
+    if result == 'ok':
+        return target
+    else:
+        return None
+
+
 @cli.command(name='import')
 @click.argument('paths', nargs=-1, type=click.Path(exists=True))
 @pass_context
@@ -220,7 +252,7 @@ def import_entries(ctx, paths):
     PATHS may be zero or more .bib files or directories containing .bib files
     to import.
     """
-    # If no files or
+    # If no files
     if len(paths) == 0:
         # Directory from which to import entries
         paths = [ctx.cmd_config('import').get('path', '.')]
@@ -283,19 +315,30 @@ def import_entries(ctx, paths):
             # Change the entry key
             e['ID'] = key
 
-        if abstract is not None:
-            fn_abs = os.path.join('abstracts', '%s.tex' % key)
-            with open(fn_abs, 'x') as f_abs:
-                f_abs.write(abstract)
-
         # Add a custom field with the current date
         e['entrydate'] = datetime.now().isoformat(timespec='minutes')
 
+        # Select a full text file to go with the entry
+        fn_local = _select_file(e['ID'], fn)
+        if fn_local:
+            e['localfile'] = os.path.basename(fn_local)
+
+        # Write the entry
         f_imported.write(to_string(e))
 
-        # Remove the imported file
-        remove = input('\nRemove imported file %s ([Y]es, [enter] to keep)? '
-                       % fn)
+        # Write the abstract
+        if abstract:
+            fn_abstract = os.path.join('abstracts', '%s.tex' % key)
+            with open(fn_abstract, 'x') as f_abstract:
+                f_abstract.write(abstract)
+
+        # Move the full text file
+        if fn_local:
+            os.system('mv -n "{}" "{}"'.format(fn_local, e['localfile']))
+
+        # Remove the imported entry file
+        remove = input('\nRemove imported file %s ([Y]es, [enter] to '
+                       'keep)? ' % fn)
         if remove.lower() == 'y':
             os.remove(fn)
 
