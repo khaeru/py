@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """BibTeX database utilities
-© 2016–2017 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+© 2016–2018 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
 Licensed under the GNU GPL v3.
 
 Reads a file .bibpy.yaml in the current directory.
 """
 from collections import namedtuple
 from copy import deepcopy
+from datetime import datetime
 from glob import iglob
 from itertools import chain, filterfalse, zip_longest
 import os
@@ -286,6 +287,9 @@ def import_entries(ctx, paths):
             fn_abs = os.path.join('abstracts', '%s.tex' % key)
             with open(fn_abs, 'x') as f_abs:
                 f_abs.write(abstract)
+
+        # Add a custom field with the current date
+        e['entrydate'] = datetime.now().isoformat(timespec='minutes')
 
         f_imported.write(to_string(e))
 
