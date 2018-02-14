@@ -5,6 +5,7 @@ Licensed under the GNU GPL v3.
 
 """
 from glob import glob
+from os import listdir
 from os.path import expanduser, join
 from subprocess import call, check_output, run, PIPE
 
@@ -153,6 +154,31 @@ def sent():
 
     print('\nMessages sent by this day in…')
     print(all_counts.loc[datetime.today().strftime('%j'), :])
+
+
+@cli.command()
+def status():
+    """Summary of tasks."""
+    print('E-mails to process')
+    count = [
+        len(listdir(join(CLAWS_CACHE, 'INBOX'))) - 2,
+        len(listdir(join(CLAWS_CACHE, '0_Lists'))) - 2
+        ]
+    print('\t{} inbox messages\n\t{} list messages'.format(*count))
+
+    print('\nReferences to sort')
+    refspath = expanduser('~/Documents/reference/0sort')
+    count = [
+        len(glob(join(refspath, '*.pdf'))) - 2,
+        len(glob(join(refspath, '*.bib'))) - 2,
+        ]
+    print('\t{} PDF documents\n\t{} BibTeX files'.format(*count))
+
+    print('\nTasks to complete')
+    overdue = run(['task', '+OVERDUE', '_unique', 'uuid'],
+                  stdout=PIPE).stdout.decode()
+    count = [len(overdue.split('\n')) - 1]
+    print('\t{} overdue'.format(*count))
 
 
 if __name__ == '__main__':
