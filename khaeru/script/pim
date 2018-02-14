@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """Personal information management utility
-© 2017 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+© 2017–2018 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
 Licensed under the GNU GPL v3.
 
 """
+from glob import glob
+from os.path import expanduser, join
 from subprocess import call, check_output, run, PIPE
 
 import click
+
+
+CLAWS_CACHE = expanduser('~/.local/share/claws-mail/imapcache/'
+                         'mail.webfaction.com/khaeru')
 
 
 @click.group(help=__doc__)
@@ -84,6 +90,69 @@ def weeklog():
         ]
 
     print('\n'.join(info))
+
+
+@cli.command()
+def sent():
+    """Compare # of sent e-mails by day of the year.
+
+    E-mails in the Claws Mail IMAP cache for folders named Sent/[year] folder
+    are counted by day of year, with cumulative totals displayed for the
+    current and previous years.
+
+    If messages are not cached locally, they are not counted. Empty years, and
+    messages with Unicode errors, malformatted dates, or no 'Date:' header are
+    skipped.
+    """
+    from collections import defaultdict
+    from datetime import datetime
+
+    import pandas as pd
+
+    time_formats = [
+        'Date: %a, %d %b %Y %H:%M:%S %z',
+        'Date: %a, %d %b %Y %H:%M:%S %z (%Z)',
+        ]
+
+    def count_year(year=''):
+        count = defaultdict(int)
+
+        messages = glob(join(CLAWS_CACHE, 'Sent', year, '*'))
+
+        if len(messages) == 0:
+            return
+
+        for message in messages:
+            try:
+                for line in open(message):
+                    if line.startswith('Date:'):
+                        for tf in time_formats:
+                            try:
+                                date = datetime.strptime(line.strip(), tf)
+                                break
+                            except ValueError:
+                                continue
+                        count[date.strftime('%j')] += 1
+                        break
+            except (IsADirectoryError, UnicodeDecodeError):
+                continue
+
+        result = pd.Series(count)
+        result.name = year if year != '' else 'Current'
+
+        print('{} ({})'.format(result.name, len(messages)), end=', ')
+        return result
+
+    print('Counting: ', end='')
+    year_counts = [count_year(str(y)) for y in range(2004, 2018)]
+    year_counts.append(count_year())
+    print('done.')
+
+    all_counts = pd.concat(year_counts, axis=1).cumsum() \
+                   .fillna(method='ffill').fillna(value=0).astype(int)
+
+    print('\nMessages sent by this day in…')
+    print(all_counts.loc[datetime.today().strftime('%j'), :])
 
 
 if __name__ == '__main__':
