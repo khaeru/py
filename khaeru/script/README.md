@@ -1,6 +1,6 @@
 # Shell and Python scripts
 
-Copyright © 2010–2017 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+Copyright © 2010–2018 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
 
 Made available under the [GNU General Public License v3.0](http://www.gnu.org/licenses/gpl-3.0.html).
 
@@ -40,6 +40,7 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 - `maildupe` — choose duplicate files to save/remove from a Maildir mailbox, for clumsy users of [OfflineIMAP](http://offlineimap.org).
 - `pim` — various functions for personal information management.
 - `reas_hdf5.py` — convert the [Regional Emissions inventory in ASia (REAS) v2.1](http://www.nies.go.jp/REAS/) into a [HDF5 file](http://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5). **Broken.**
+- `strip-replies` — a script for use with the [Claws Mail](http://www.claws-mail.org) [Python plugin](http://www.claws-mail.org/plugin.php?plugin=python) to tidy reply messages by removing signatures and blocks of blank lines.
 - `task-dedupe` — snippets to assist with removing duplicate tasks in [Taskwarrior](http://taskwarrior.org).
 - `task-notify` — similar to https://github.com/flickerfly/taskwarrior-notifications, but in Python, and also reports active time from Taskwarrior.
 - `toggle-md0` — in Ubuntu 15.10, gnome-disk-utility [removed md RAID support](https://git.gnome.org/browse/gnome-disk-utility/commit/?id=820e2d3d325aef3574e207a5df73e7480ed41dda); use this with a .desktop file to have a GUI way of starting/stopping an array.
