@@ -42,6 +42,7 @@ on the command line. See
 https://www.dropbox.com/developers/documentation/python#tutorial
 
 """
+# TODO turn into a thinner wrapper to rclone
 # TODO catch exception caused by file changes during upload
 # TODO multi-thread → speed increase?
 # TODO check times or hash to avoid refreshing files:

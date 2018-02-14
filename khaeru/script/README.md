@@ -30,7 +30,7 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 
 ### Python
 
-- `bib` — BibTeX bibliography management.
+- `bib` — BibTeX bibliography management. See `bib --help`.
 - `ceic` — process data exported from the CEIC database.
 - `db-push` — upload files using the [Dropbox Python SDK](https://www.dropbox.com/developers/documentation/python).
 - `disqus-export`
@@ -38,7 +38,7 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 - `imgdupe` — find image files in a set of directories with matching *names* and *appearance*, but possibly different *EXIF metadata* or *size*.
 - `kdx` — manage Kindle DX collections according to directory structure.
 - `maildupe` — choose duplicate files to save/remove from a Maildir mailbox, for clumsy users of [OfflineIMAP](http://offlineimap.org).
-- `pim` — various functions for personal information management.
+- `pim` — various functions for personal information management. See `pim --help`.
 - `reas_hdf5.py` — convert the [Regional Emissions inventory in ASia (REAS) v2.1](http://www.nies.go.jp/REAS/) into a [HDF5 file](http://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5). **Broken.**
 - `strip-replies` — a script for use with the [Claws Mail](http://www.claws-mail.org) [Python plugin](http://www.claws-mail.org/plugin.php?plugin=python) to tidy reply messages by removing signatures and blocks of blank lines.
 - `task-dedupe` — snippets to assist with removing duplicate tasks in [Taskwarrior](http://taskwarrior.org).
@@ -51,7 +51,7 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 - `gk-query`, `gk-query.py` — query the GNOME Keyring for passphrases associated with a particular search string, from the command-line. Works headlessly (i.e. without an active GNOME session).
 - `svante_jupyter_job.sh`, `svante_jupyter_setup.sh`, `svante_jupyter_tunnel.sh` — run a [Jupyter kernel gateway](https://jupyter-kernel-gateway.readthedocs.io) using [Slurm](https://slurm.schedmd.com) on the MIT svante cluster.
 
-## `old/`: unused scripts
+## `old/`: unused scripts—most of which still work!
 
 - `dreamhost-dns.py` — dynamic DNS cron script for [DreamHost](https://www.dreamhost.com).
 - `gedit-rubber` — LaTeX compile script using rubber, for the [gedit](https://wiki.gnome.org/Apps/Gedit) plugin ['External Tools'](https://wiki.gnome.org/Apps/Gedit/Plugins/ExternalTools).
