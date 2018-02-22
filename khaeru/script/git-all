@@ -64,7 +64,7 @@ for repo in find_repos():
     if args.fetch:
         try:
             repo.remotes.origin.fetch()
-        except AttributeError:
+        except (AttributeError, GitCommandError):
             pass
 
     # Count number of commits ahead and/or behind upstream
