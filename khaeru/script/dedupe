@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Interactively process files reported by fdupes or rdfind."""
+"""Interactively process files reported by duff, fdupes, or rdfind.
+
+Use one of the following:
+$ duff -ar . >duplicates.duff
+$ fdupes -HrS . >duplicate.fdupes
+$ rdfind -ignoreempty false -checksum sha1 -outputname duplicates.rdfind
+
+(You can also prepend "/usr/bin/time -o timer" to keep track of the execution
+time.)
+
+Then call:
+$ dedupe duplicates.EXT
+
+"""
 from collections import defaultdict
 import os.path
 from os.path import commonpath, split
@@ -11,8 +24,8 @@ import tqdm
 
 # Regex for parsing the header lines of duplicate file groups
 group_re = {
-    'rdfind': re.compile('(?P<count>\d+) files in cluster (?P<id>\d+) '
-                         '\((?P<size>\d+) bytes, digest (?P<digest>\w{40})\)'),
+    'duff': re.compile('(?P<count>\d+) files in cluster (?P<id>\d+) '
+                       '\((?P<size>\d+) bytes, digest (?P<digest>\w{40})\)'),
     'fdupes': re.compile('(?P<size>\d+) byte[s]? each:'),
     }
 
@@ -28,6 +41,7 @@ class Group:
 
         self.format = format
 
+        self.digest = groupdict.pop('digest', '')
         for k, v in groupdict.items():
             setattr(self, k, int(v))
 
@@ -47,12 +61,12 @@ class Group:
         self.paths.append(path)
         self.expecting -= 1
 
-        if self.format == 'rdfind':
-            self.finished = self.count == 0
+        if self.format == 'duff':
+            self.finished = self.expecting == 0
 
     def __str__(self):
-        info = ['#{0.id:5d} — {0.count} files — {0.size} bytes — {1}'
-                .format(self, getattr(self, 'digest', '(no digest)'))]
+        info = ['#{0.id:5d} — {0.count} files — {0.size} bytes — {0.digest}'
+                .format(self)]
 
         if self.count > 10:
             paths = self.paths[:5] + ['…'] + self.paths[-5:]
