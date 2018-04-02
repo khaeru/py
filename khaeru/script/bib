@@ -97,6 +97,15 @@ class BibCLIContext:
 
         self.verbose = verbose
 
+        # Parse the database
+        database = self.config.get('database', database)
+        database_fn = os.path.join(path, database)
+        self.db = self.read_database(database_fn)
+
+    def cmd_config(self, cmd):
+        return self.config.get(cmd, {})
+
+    def read_database(self, filename):
         # Set up the BibTeX parser
         parser = BibTexParser()
         parser.homogenise_fields = False
@@ -104,14 +113,7 @@ class BibCLIContext:
         parser.customization = lambda r: BibItem(r,
                                                  self.keywords.update,
                                                  self.config)
-        # Parse the database
-        database = self.config.get('database', database)
-        database_fn = os.path.join(path, database)
-        self.db = bibtexparser.load(open(database_fn, 'r'),
-                                    parser=parser)
-
-    def cmd_config(self, cmd):
-        return self.config.get(cmd, {})
+        return bibtexparser.load(open(filename, 'r'), parser=parser)
 
 
 # Custom decorator that uses BibCLIContext
@@ -574,6 +576,24 @@ def queue(ctx):
     print('Read next:',
           '\n'.join(sorted(sets['to_read'])),
           sep='\n', end='\n\n')
+
+
+@cli.command()
+@click.option('--exclude-from', 'exclude', type=click.File('r'),
+              help='Also omit keys from this file; one per line.')
+@click.argument('other', type=click.Path(exists=True))
+@pass_context
+def diff(ctx, other, exclude):
+    """Print keys in the database but not in OTHER."""
+    keys = set(ctx.db.entries_dict.keys())
+
+    other_db = ctx.read_database(other)
+    keys -= set(other_db.entries_dict.keys())
+
+    if exclude:
+        keys -= set(exclude.read().split())
+
+    print(*sorted(keys), sep='\n')
 
 
 if __name__ == '__main__':
