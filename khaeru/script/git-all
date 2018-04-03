@@ -23,7 +23,10 @@ COLORS = {
     'R': fg.CYAN,
     }
 
-FILTER = re.compile('(\.local/share/Trash|vc/other)')
+FILTER = re.compile('(%s)' % '|'.join([
+    '\.local/share/Trash',
+    'vc/other',
+    'vc/dotfiles/atom/packages']))
 
 
 # Parse simple arguments
@@ -60,8 +63,10 @@ def plural(num):
 clean = 0
 
 for repo in find_repos():
+    quiet = FILTER.search(repo.working_dir) and not args.verbose
+
     # Optionally fetch remotes
-    if args.fetch:
+    if args.fetch and not quiet:
         try:
             repo.remotes.origin.fetch()
         except (AttributeError, GitCommandError):
@@ -85,7 +90,6 @@ for repo in find_repos():
     # Boolean variables describing repo status
     dirty = repo.is_dirty(untracked_files=True)
     ahead_or_behind = ahead + behind > 0
-    quiet = FILTER.search(repo.working_dir) and not args.verbose
 
     if dirty or (ahead_or_behind and not quiet):
         # Identify the repository ahead of other information that may follow
