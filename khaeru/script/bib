@@ -5,6 +5,7 @@ Licensed under the GNU GPL v3.
 
 Reads a file .bibpy.yaml in the current directory.
 """
+# TODO fix abstracts do not save correctly if not in DB directory
 from collections import namedtuple
 from copy import deepcopy
 from datetime import datetime
@@ -95,12 +96,14 @@ class BibCLIContext:
         except FileNotFoundError:
             pass
 
+        if database:
+            self.config['database'] = database
+
         self.verbose = verbose
 
         # Parse the database
-        database = self.config.get('database', database)
-        database_fn = os.path.join(path, database)
-        self.db = self.read_database(database_fn)
+        self.database_fn = os.path.join(path, self.config['database'])
+        self.db = self.read_database(self.database_fn)
 
     def cmd_config(self, cmd):
         return self.config.get(cmd, {})
@@ -279,9 +282,6 @@ def import_entries(ctx, paths):
         # Create a fake 'database' with only one entry.
         return writer.write(_dbnt([], [entry], [], {}))
 
-    # File for imported entries
-    f_imported = open('added.bib', 'a')
-
     # Iterate over files in the add_dir
     for fn in chain(*map(iglob, paths)):
         os.system('clear')
@@ -325,8 +325,9 @@ def import_entries(ctx, paths):
         if fn_local:
             e['localfile'] = os.path.basename(fn_local)
 
-        # Write the entry
-        f_imported.write(to_string(e))
+        # Append the entry to the database
+        with open(ctx.database_fn, 'a') as f_imported:
+            f_imported.write(to_string(e))
 
         # Write the abstract
         if abstract:
