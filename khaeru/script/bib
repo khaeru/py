@@ -176,7 +176,11 @@ def guess_key(entry):
         a = entry['author'][0].split(',')[0].lower()
     else:
         a = '-'.join([a.split(',')[0].lower() for a in entry['author']])
-    return '%s-%s' % (a, entry['year'])
+
+    # Use YYYY if the year is not present
+    year = entry.get('year', 'YYYY')
+
+    return f'{a}-{year}'
 
 
 def clean_str(s):
@@ -201,8 +205,12 @@ def clean_str(s):
 
         if len(keywords):
             result += 'keywords = {%s},' % '; '.join(keywords)
-        print('part: <%s>' % p)
+
+        # DEBUG print the parts
+        # print('part: <%s>' % p)
+
         result += p
+
     return result
 
 
@@ -290,7 +298,7 @@ def import_entries(ctx, paths):
         # Read and parse the file
         with open(fn, 'r') as f:
             s = f.read()
-            e = parser.parse(clean_str(s)).entries[0]
+            e = parser.parse(clean_str(s)).entries[-1]
             abstract = e.pop('abstract', None)
 
         print('Raw:', s)
@@ -327,6 +335,7 @@ def import_entries(ctx, paths):
 
         # Append the entry to the database
         with open(ctx.database_fn, 'a') as f_imported:
+            f_imported.write('\n')
             f_imported.write(to_string(e))
 
         # Write the abstract
