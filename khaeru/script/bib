@@ -18,7 +18,6 @@ key with the command name, and then place command-specific keys underneath. Use
 - import
 - queue
 """
-# TODO fix abstracts do not save correctly if not in DB directory
 # TODO speed up loading/defer reading of the database until it's needed/read in
 #      a separate thread
 from collections import namedtuple
@@ -352,7 +351,8 @@ def import_entries(ctx, paths):
         e['entrydate'] = datetime.now().isoformat(timespec='minutes')
 
         # Select a full text file to go with the entry
-        fn_local = _select_file(e['ID'], fn)
+        fn_local = _select_file(e['ID'],
+                                ctx.cmd_config('import').get('path', '.'))
         if fn_local:
             e['localfile'] = os.path.basename(fn_local)
 
