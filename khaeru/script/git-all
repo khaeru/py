@@ -25,6 +25,7 @@ COLORS = {
 
 FILTER = re.compile('(%s)' % '|'.join([
     '\.local/share/Trash',
+    '\.local/share/virtualenvs',
     'vc/other',
     'vc/dotfiles/atom/packages']))
 
