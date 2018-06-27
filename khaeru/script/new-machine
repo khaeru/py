@@ -34,19 +34,21 @@ mv Pictures Image
 mkdir -p Documents
 
 # Clone personal dotfiles
+
 DF=vc/dotfiles
 clone khaeru/dotfiles
+# Install symlinks to dotfiles
 vc/dotfiles/install.sh
+# Source newly-symlinked .profile
 . ~/.profile
 
 # Add software sources
+
 # PPA keys for
 # - flacon
 # - Google Chrome
 # - Google gcsfuse
 # - keybase
-# - skype
-# - webupd8team (Atom)
 # - yubico
 # - git-lfs
 sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys \
@@ -54,16 +56,21 @@ sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys \
   d38b4796 \
   a7317b0f \
   656d16c7 \
-  df7587c3 \
-  eea14886 \
   32cba1a9 \
   d59097ab
-sudo install --mode=644 --owner=root $DF/apt/ppa.list /etc/apt/sources.list.d/ppa.list
+# Install custom ppa.list from dotfiles
+sudo install --mode=644 --owner=root $DF/apt/ppa.list \
+  /etc/apt/sources.list.d/ppa.list
+# Enable Ubuntu's partner repositories
 sudo sed -E -i 's/^# (deb .* partner)/\1/' /etc/apt/sources.list
+# Update package lists including new sources
+sudo apt update
 
 # Install packages
-sudo apt update
 install_set base
+
+# Packages from snaps
+sudo snap install atom skype --classic
 
 # R (before Python in order to install r-base-dev, needed to compile rpy2)
 install_set R
@@ -85,14 +92,15 @@ sudo apt clean
 
 # Configure software
 
-# Atom
+# Atom: install Atom packages
 sed -n -E 's/^  "(.*)"/\1/p' $DF/atom/packages.cson | xargs apm install
 
-# ddclient
+# ddclient: install own configuration
 sudo install --mode=600 --owner=root $DF/ddclient.conf /etc/ddclient.conf
 
 # GAMS
-# TODO install GAMS
+# TODO install GAMS itself
+# Install GAMS Python API
 install-gams-api 24.9.1 _36 pip3 --user
 
 # Gnome Shell
@@ -108,7 +116,7 @@ gnomeshell-extension-manage --install --extension-id 358
 # Gnome: load settings
 dconf load / < $DF/dconf.txt
 
-# Gnome Terminal
+# Gnome Terminal: use 'Solarized' colour scheme
 clone Anthony25/gnome-terminal-colors-solarized
 vc/gnome-terminal-colors-solarized/install.sh <<EOF
 1
