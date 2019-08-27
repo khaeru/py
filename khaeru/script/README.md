@@ -1,6 +1,6 @@
 # Shell and Python scripts
 
-Copyright © 2010–2018 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+Copyright © 2010–2019 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
 
 Made available under the [GNU General Public License v3.0](http://www.gnu.org/licenses/gpl-3.0.html).
 
@@ -30,14 +30,15 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 
 ### Python
 
-- `bib` — BibTeX bibliography management. See `bib --help`.
+- `bib` — Command-line utility for BibTeX databases; moved to https://github.com/khaeru/bib.
 - `ceic` — process data exported from the CEIC database.
 - `disqus-export`
-- `git-all` — locate directories under `$HOME` which are [git](https://git-scm.com)-controlled and have uncommitted changes.
+- `git-all` — locate and describe directories under `$HOME` which are [git](https://git-scm.com)-controlled and have uncommitted changes.
+   Use git auto-dispatch: `git all`.
 - `imgdupe` — find image files in a set of directories with matching *names* and *appearance*, but possibly different *EXIF metadata* or *size*.
 - `kdx` — manage Kindle DX collections according to directory structure.
 - `maildupe` — choose duplicate files to save/remove from a Maildir mailbox, for clumsy users of [OfflineIMAP](http://offlineimap.org).
-- `pim` — various functions for personal information management. See `pim --help`.
+- `pim` — various tools for personal information management, as a [click](https://click.palletsprojects.com) application. See `pim --help`.
 - `rclone-push` — upload files using [rclone](https://rclone.org) and a file `.rclone-push.yaml` in the current directory.
 - `reas_hdf5.py` — convert the [Regional Emissions inventory in ASia (REAS) v2.1](http://www.nies.go.jp/REAS/) into a [HDF5 file](http://en.wikipedia.org/wiki/Hierarchical_Data_Format#HDF5). **Broken.**
 - `strip-replies` — a script for use with the [Claws Mail](http://www.claws-mail.org) [Python plugin](http://www.claws-mail.org/plugin.php?plugin=python) to tidy reply messages by removing signatures and blocks of blank lines.
@@ -48,7 +49,8 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 
 ### Mixed
 
-- `gk-query`, `gk-query.py` — query the GNOME Keyring for passphrases associated with a particular search string, from the command-line. Works headlessly (i.e. without an active GNOME session).
+- `gk-query`, `gk-query.py` — query the GNOME Keyring for passphrases associated with a particular search string, from the command-line.
+  Works headlessly (i.e. without an active GNOME session).
 - `svante_jupyter_job.sh`, `svante_jupyter_setup.sh`, `svante_jupyter_tunnel.sh` — run a [Jupyter kernel gateway](https://jupyter-kernel-gateway.readthedocs.io) using [Slurm](https://slurm.schedmd.com) on the MIT svante cluster.
 
 ## `old/`: unused scripts—most of which still work!
