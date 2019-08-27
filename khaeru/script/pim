@@ -1,24 +1,34 @@
 #!/usr/bin/env python3
 """Personal information management utility
-© 2017–2018 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+
+\b
+© 2017–2019 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
 Licensed under the GNU GPL v3.
 
 """
 from glob import glob
 from os import listdir
 from os.path import expanduser, join
-from subprocess import call, check_output, run, PIPE
+from pathlib import Path
+import re
+from subprocess import check_call, call, check_output, run, PIPE
 
 import click
 
 
-CLAWS_CACHE = expanduser('~/.local/share/claws-mail/imapcache/'
-                         'mail.webfaction.com/khaeru')
+CLAWS_CACHE = Path('~/.local/share/claws-mail/imapcache/mail.webfaction.com/'
+                   'khaeru').expanduser()
 
 
 @click.group(help=__doc__)
 def cli():
     pass
+
+
+from task_slack import main as slack  # noqa: E402
+
+
+cli.add_command(click.Command('slack', callback=slack, help=slack.__doc__))
 
 
 @cli.command('read')
@@ -30,7 +40,7 @@ def cli():
 @click.option('--timer', 'start_timer', is_flag=True,
               help='Start tracking with timewarrior.')
 def read_command(key, no_file, create_note, start_timer):
-    """Read an article with bibliography entry KEY."""
+    """Read the article for bibliography entry KEY."""
     from configparser import ConfigParser
     from os.path import exists, expanduser, join
 
@@ -156,14 +166,18 @@ def sent():
     print(all_counts.loc[datetime.today().strftime('%j'), :])
 
 
+def _count_mail():
+    return [
+        len(listdir(CLAWS_CACHE / 'INBOX')) - 2,
+        len(listdir(CLAWS_CACHE / '0_Lists')) - 2
+        ]
+
+
 @cli.command()
 def status():
     """Summary of tasks."""
     print('E-mails to process')
-    count = [
-        len(listdir(join(CLAWS_CACHE, 'INBOX'))) - 2,
-        len(listdir(join(CLAWS_CACHE, '0_Lists'))) - 2
-        ]
+    count = _count_mail()
     print('\t{} inbox messages\n\t{} list messages'.format(*count))
 
     print('\nReferences to sort')
@@ -179,6 +193,35 @@ def status():
                   stdout=PIPE).stdout.decode()
     count = [len(overdue.split('\n')) - 1]
     print('\t{} overdue'.format(*count))
+
+
+@cli.command()
+@click.argument('action', type=click.Choice(['start', 'stop']), default=None,
+                nargs=-1)
+def mail(action):
+    """Start/stop timewarrior for Inbox 0."""
+    # Detect current tracking
+    status = run('timew', stdout=PIPE, text=True).stdout
+    current = re.match('Tracking (.*)', status)
+    tracking = 'Process e-mail' in current[1] if current else False
+
+    try:
+        action = action[0]
+    except IndexError:
+        action = 'stop' if tracking else 'start'
+
+    if action == 'stop' and not tracking:
+        # Something wrong
+        print(status, end='')
+        return
+
+    count = '/'.join(map(str, _count_mail()))
+
+    if action == 'start':
+        check_call(['timew', action, '"Process e-mail"', f'from:{count}'])
+    elif action == 'stop':
+        check_call(['timew', 'stop'])
+        check_call(['timew', 'tag', '@1', f'to:{count}'])
 
 
 if __name__ == '__main__':
