@@ -21,7 +21,8 @@ def sod(dt):
 
 def get_tasks():
     # List of tasks with 'estimate' set
-    tw_json = check_output(['task', 'estimate.any:', 'export'], text=True)
+    tw_json = check_output(['task', 'estimate.any:', '-COMPLETED', '-DELETED',
+                            'export'], text=True)
 
     # Convert to pd.DataFrame
     info = pd.read_json(tw_json, convert_dates=['due', 'entry']) \
