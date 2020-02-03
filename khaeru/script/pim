@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Personal information management utility
+"""Personal information management utility.
 
 \b
-© 2017–2019 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
+© 2017–2020 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
 Licensed under the GNU GPL v3.
 
 """
@@ -20,9 +20,13 @@ CLAWS_CACHE = Path('~/.local/share/claws-mail/imapcache/mail.webfaction.com/'
                    'khaeru').expanduser()
 
 
-@click.group(help=__doc__)
-def cli():
-    pass
+@click.group(help=__doc__, invoke_without_command=True)
+@click.pass_context
+def cli(ctx):
+    if ctx.invoked_subcommand is None:
+        click.echo(cli.get_help(ctx))
+        print('')
+        status()
 
 
 from task_slack import main as slack  # noqa: E402
@@ -175,10 +179,10 @@ def _count_mail():
 
 @cli.command()
 def status():
-    """Summary of tasks."""
+    """Summary of tasks (default command)."""
     print('E-mails to process')
     count = _count_mail()
-    print('\t{} inbox messages\n\t{} list messages'.format(*count))
+    print('  {:3d} inbox\n  {:3d} list traffic'.format(*count))
 
     print('\nReferences to sort')
     refspath = expanduser('~/Documents/reference/0sort')
@@ -186,13 +190,13 @@ def status():
         len(glob(join(refspath, '*.pdf'))) - 2,
         len(glob(join(refspath, '*.bib'))) - 2,
         ]
-    print('\t{} PDF documents\n\t{} BibTeX files'.format(*count))
+    print('  {:3d} PDF documents\n  {:3d} BibTeX files'.format(*count))
 
     print('\nTasks to complete')
     overdue = run(['task', '+OVERDUE', '_unique', 'uuid'],
                   stdout=PIPE).stdout.decode()
     count = [len(overdue.split('\n')) - 1]
-    print('\t{} overdue'.format(*count))
+    print('  {:3d} overdue'.format(*count))
 
 
 @cli.command()
