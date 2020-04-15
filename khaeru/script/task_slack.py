@@ -2,96 +2,130 @@
 from datetime import datetime, time, timedelta
 from subprocess import check_output
 
+from colorama import Fore as fg
 import pandas as pd
 
 
 # Current time zone
 LOCAL_TZ = datetime.now().astimezone().tzinfo
+NOW = datetime.now(LOCAL_TZ)
 
 
-def eod(dt):
+def eowd(dt):
     """Return the end-of-day on date *dt*."""
     return datetime.combine(dt.date(), time(hour=17), LOCAL_TZ)
 
 
-def sod(dt):
+def sowd(dt):
     """Return the start-of-day on date *dt*."""
     return datetime.combine(dt.date(), time(hour=9), LOCAL_TZ)
 
 
 def get_tasks():
     # List of tasks with 'estimate' set
-    tw_json = check_output(['task', 'estimate.any:', '-COMPLETED', '-DELETED',
-                            'export'], text=True)
+    query = ['estimate.any:', '-COMPLETED', '-DELETED']
+    tw_json = check_output(['task'] + query + ['export'], text=True)
 
     # Convert to pd.DataFrame
-    info = pd.read_json(tw_json, convert_dates=['due', 'entry']) \
+    dt_columns = ['due', 'entry']
+    info = pd.read_json(tw_json, convert_dates=dt_columns) \
              .sort_values('due')
+
+    # Localize
+    for column in dt_columns:
+        info[column] = info[column].dt.tz_convert(LOCAL_TZ)
 
     # Convert 'estimate' to timedelta
     # - Add '0D' and '0S' to satisfy pandas parser.
     info['estimate'] = pd.to_timedelta(
         info['estimate'].str.replace('PT', 'P0DT') + '0S')
 
-    # The parsed (pandas?) UTC is not the same as datetime.timezone.utc
-    return info, info.loc[0, 'due'].tzinfo
+    return info
 
 
 def work_time_until(when):
     """Return a time delta until *when* including working time."""
-    result = when - NOW
-
-    if result.components.days >= 1:
+    if when.day == NOW.day:
+        result = when - NOW
+    else:
         # From now until EOD
-        result = eod(NOW) - NOW
+        result = eowd(NOW) - NOW
 
-        # Intervening days
-        result += timedelta(hours=8) * (when - NOW).components.days
+        # Intervening days, if any
+        result += timedelta(hours=8) * (when.day - NOW.day - 1)
 
         # From the start of day on the due date 'til the end time or EOD
-        result += (when if when < eod(when) else eod(when)) - sod(when)
+        result += max(timedelta(0), min(when, eowd(when)) - sowd(when))
 
     return result
 
 
-def td_str(td):
-    td = td.to_pytimedelta()
-    hours = td.seconds // 3600
+def td_str(td, fixed_width=True):
+    """Format timedelta *td* as a string"""
+    negative = td.days < 0
+
+    # Split td.seconds into hours and minutes
+    hours = (td.seconds // 3600)
     minutes = (td.seconds - 3600 * hours) // 60
     seconds = td.seconds - 3600 * hours - 60 * minutes
-    # TODO this is incorrect
-    hours += (8 * td.days if td.days > 0 else 24 * td.days)
-    return f'{hours:2}:{minutes:02}:{seconds:02}'
+
+    if negative:
+        # e.g. td.days is -1, hours is 23 → convert to -1
+        hours = (abs(td.days) * 24) - hours - 1
+
+    if fixed_width:
+        neg = '-' if negative else ' '
+        hour_width = 2
+    else:
+        neg = '-' if negative else ''
+        hour_width = 0
+
+    template = f'{neg}{{hours:{hour_width}}}:{{minutes:02}}:{{seconds:02}}'
+    return template.format(**locals())
 
 
 def main():
     """Estimated vs available time for tasks."""
-
-    global NOW
-
-    tasks, UTC = get_tasks()
-
-    # Current time in pandas UTC
-    NOW = datetime.now(UTC)
-
-    # Slack time: time until due minus time to complete
-    tasks['slack'] = tasks['due'].apply(work_time_until) - tasks['estimate']
+    tasks = get_tasks()
 
     # Print results
-
-    accumulated = timedelta(0)
+    total_work = timedelta(0)
     for due, group_info in tasks.groupby('due'):
-        total_est = group_info['estimate'].sum()
-        accumulated += total_est
-        slack = work_time_until(due) - accumulated
+        # Estimated work by this due time
+        work = group_info['estimate'].sum().to_pytimedelta()
 
-        # Due time in the local timezone
-        due_ = due.astimezone(LOCAL_TZ)
-
-        print(f'Until {due_:%m-%d %H:%M} -- {td_str(accumulated)} of work, '
-              f' {td_str(slack)} slack')
+        print(f'by {due:%a %d %b %H:%M}')
 
         for _, row in group_info.iterrows():
-            print(f'  {td_str(row.estimate)} -- {row.id} {row.description}')
+            print(f'{td_str(row.estimate)}  #{row.id}  {row.description}')
 
-        print()
+        if due < NOW:
+            # Overdue
+            print(f'{td_str(work)}  ---  work overdue\n')
+            continue
+
+        # Accumulated estimated work
+        total_work += work
+
+        # Slack time: time until due minus time to complete
+        slack = work_time_until(due) - total_work
+        # Percent slack time
+        pct_slack = 100 * (slack / total_work)
+
+        # Output colour
+        if pct_slack > 10:
+            color = fg.GREEN
+        elif -10 < pct_slack < 10:
+            color = fg.YELLOW
+        else:
+            color = fg.RED
+
+        print(
+            color,
+            '{}  ---  slack for {} of work ({:.0f}%)'.format(
+                td_str(slack),
+                td_str(total_work, fixed_width=False),
+                pct_slack),
+            fg.RESET,
+            '\n',
+            sep='')
