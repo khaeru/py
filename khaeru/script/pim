@@ -24,12 +24,10 @@ CLAWS_CACHE = Path('~/.local/share/claws-mail/imapcache/mail.webfaction.com/'
 @click.pass_context
 def cli(ctx):
     if ctx.invoked_subcommand is None:
-        print()
         status()
-        print()
 
 
-from task_slack import main as slack  # noqa: E402
+from task_slack import get_tasks, main as slack  # noqa: E402
 
 
 cli.add_command(click.Command('slack', callback=slack, help=slack.__doc__))
@@ -178,25 +176,35 @@ def _count_mail():
 
 
 @cli.command()
-def status():
+@click.pass_context
+def status(ctx):
     """Summary of tasks (default command)."""
+    print('\nTasks')
+    active = get_tasks(['+ACTIVE'])
+    print(f"  {len(get_tasks(['+OVERDUE'])):3d} overdue")
+    print(f'  {len(active):3d} active', end='')
+    print(' (`ta` for more):' if len(active) else '')
+    for _, task in active.iterrows():
+        print(f'      {task.id:2d} {task.description}')
+
+    print('\n', run(['timew'], stderr=PIPE, stdout=PIPE, text=True).stdout,
+          sep='')
+
     print('E-mails to process')
     count = _count_mail()
-    print('  {:3d} inbox\n  {:3d} list traffic'.format(*count))
+    print(f'  {count[0]:3d} inbox')
+    print(f'  {count[1]:3d} list traffic')
 
     print('\nReferences to sort')
     refspath = expanduser('~/Documents/reference/0sort')
-    count = [
-        len(glob(join(refspath, '*.pdf'))) - 2,
-        len(glob(join(refspath, '*.bib'))) - 2,
-        ]
-    print('  {:3d} PDF documents\n  {:3d} BibTeX files'.format(*count))
+    print(f"  {len(glob(join(refspath, '*.pdf'))) - 2:3d} PDF documents")
+    print(f"  {len(glob(join(refspath, '*.bib'))) - 2:3d} BibTeX files")
+    print()
 
-    print('\nTasks to complete')
-    overdue = run(['task', '+OVERDUE', '_unique', 'uuid'],
-                  stdout=PIPE).stdout.decode()
-    count = [len(overdue.split('\n')) - 1]
-    print('  {:3d} overdue'.format(*count))
+    # Print commands after the status
+    formatter = ctx.make_formatter()
+    cli.format_commands(ctx, formatter)
+    print(formatter.getvalue())
 
 
 @cli.command()

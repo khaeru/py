@@ -21,24 +21,34 @@ def sowd(dt):
     return datetime.combine(dt.date(), time(hour=9), LOCAL_TZ)
 
 
-def get_tasks():
+def get_tasks(query=['estimate.any:']):
     # List of tasks with 'estimate' set
-    query = ['estimate.any:', '-COMPLETED', '-DELETED']
-    tw_json = check_output(['task'] + query + ['export'], text=True)
+    cmd = ['task'] + query + ['-COMPLETED', '-DELETED', 'export']
+    tw_json = check_output(cmd, text=True)
 
     # Convert to pd.DataFrame
     dt_columns = ['due', 'entry']
-    info = pd.read_json(tw_json, convert_dates=dt_columns) \
-             .sort_values('due')
+    info = pd.read_json(tw_json, convert_dates=dt_columns)
+
+    try:
+        info = info.sort_values('due')
+    except KeyError:
+        pass
 
     # Localize
     for column in dt_columns:
-        info[column] = info[column].dt.tz_convert(LOCAL_TZ)
+        try:
+            info[column] = info[column].dt.tz_convert(LOCAL_TZ)
+        except KeyError:
+            pass
 
-    # Convert 'estimate' to timedelta
-    # - Add '0D' and '0S' to satisfy pandas parser.
-    info['estimate'] = pd.to_timedelta(
-        info['estimate'].str.replace('PT', 'P0DT') + '0S')
+    try:
+        # Convert 'estimate' to timedelta
+        # - Add '0D' and '0S' to satisfy pandas parser.
+        info['estimate'] = pd.to_timedelta(
+            info['estimate'].str.replace('PT', 'P0DT') + '0S')
+    except KeyError:
+        pass
 
     return info
 
