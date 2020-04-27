@@ -24,9 +24,9 @@ CLAWS_CACHE = Path('~/.local/share/claws-mail/imapcache/mail.webfaction.com/'
 @click.pass_context
 def cli(ctx):
     if ctx.invoked_subcommand is None:
-        click.echo(cli.get_help(ctx))
-        print('')
+        print()
         status()
+        print()
 
 
 from task_slack import main as slack  # noqa: E402
