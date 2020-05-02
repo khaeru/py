@@ -30,6 +30,7 @@ Most of these use a `#!/bin/sh` line, meaning that, on Ubuntu, they run under `d
 
 ### Python
 
+- `apt-or-pip` — Suggest whether to install Python packages using apt, or pip.
 - `bib` — Command-line utility for BibTeX databases; moved to https://github.com/khaeru/bib.
 - `ceic` — process data exported from the CEIC database.
 - `disqus-export`
