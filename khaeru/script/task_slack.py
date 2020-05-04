@@ -82,6 +82,8 @@ def td_str(td, fixed_width=True):
     if negative:
         # e.g. td.days is -1, hours is 23 → convert to -1
         hours = (abs(td.days) * 24) - hours - 1
+    else:
+        hours += td.days * 24
 
     if fixed_width:
         neg = '-' if negative else ' '
