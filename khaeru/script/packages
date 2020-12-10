@@ -1,4 +1,6 @@
 #!/bin/sh
+#
+# Record currently-installed apt and Python packages
 
 DIR=$HOME/vc/dotfiles
 

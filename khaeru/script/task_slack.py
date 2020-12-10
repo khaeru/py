@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Show slack time for scheduled tasks."""
 from datetime import datetime, time, timedelta
 from subprocess import check_output
 
@@ -21,17 +22,17 @@ def sowd(dt):
     return datetime.combine(dt.date(), time(hour=9), LOCAL_TZ)
 
 
-def get_tasks(query=['estimate.any:']):
+def get_tasks(query=["estimate.any:"]):
     # List of tasks with 'estimate' set
-    cmd = ['task'] + query + ['-COMPLETED', '-DELETED', 'export']
+    cmd = ["task"] + query + ["-COMPLETED", "-DELETED", "export"]
     tw_json = check_output(cmd, text=True)
 
     # Convert to pd.DataFrame
-    dt_columns = ['due', 'entry']
+    dt_columns = ["due", "entry"]
     info = pd.read_json(tw_json, convert_dates=dt_columns)
 
     try:
-        info = info.sort_values('due')
+        info = info.sort_values("due")
     except KeyError:
         pass
 
@@ -45,8 +46,9 @@ def get_tasks(query=['estimate.any:']):
     try:
         # Convert 'estimate' to timedelta
         # - Add '0D' and '0S' to satisfy pandas parser.
-        info['estimate'] = pd.to_timedelta(
-            info['estimate'].str.replace('PT', 'P0DT') + '0S')
+        info["estimate"] = pd.to_timedelta(
+            info["estimate"].str.replace("PT", "P0DT") + "0S"
+        )
     except KeyError:
         pass
 
@@ -75,7 +77,7 @@ def td_str(td, fixed_width=True):
     negative = td.days < 0
 
     # Split td.seconds into hours and minutes
-    hours = (td.seconds // 3600)
+    hours = td.seconds // 3600
     minutes = (td.seconds - 3600 * hours) // 60
     seconds = td.seconds - 3600 * hours - 60 * minutes
 
@@ -86,13 +88,13 @@ def td_str(td, fixed_width=True):
         hours += td.days * 24
 
     if fixed_width:
-        neg = '-' if negative else ' '
+        neg = "-" if negative else " "
         hour_width = 2
     else:
-        neg = '-' if negative else ''
+        neg = "-" if negative else ""
         hour_width = 0
 
-    template = f'{neg}{{hours:{hour_width}}}:{{minutes:02}}:{{seconds:02}}'
+    template = f"{neg}{{hours:{hour_width}}}:{{minutes:02}}:{{seconds:02}}"
     return template.format(**locals())
 
 
@@ -102,18 +104,18 @@ def main():
 
     # Print results
     total_work = timedelta(0)
-    for due, group_info in tasks.groupby('due'):
+    for due, group_info in tasks.groupby("due"):
         # Estimated work by this due time
-        work = group_info['estimate'].sum().to_pytimedelta()
+        work = group_info["estimate"].sum().to_pytimedelta()
 
-        print(f'by {due:%a %d %b %H:%M}')
+        print(f"by {due:%a %d %b %H:%M}")
 
         for _, row in group_info.iterrows():
-            print(f'{td_str(row.estimate)}  #{row.id}  {row.description}')
+            print(f"{td_str(row.estimate)}  #{row.id}  {row.description}")
 
         if due < NOW:
             # Overdue
-            print(f'{td_str(work)}  ---  work overdue\n')
+            print(f"{td_str(work)}  ---  work overdue\n")
             continue
 
         # Accumulated estimated work
@@ -134,10 +136,10 @@ def main():
 
         print(
             color,
-            '{}  ---  slack for {} of work ({:.0f}%)'.format(
-                td_str(slack),
-                td_str(total_work, fixed_width=False),
-                pct_slack),
+            "{}  ---  slack for {} of work ({:.0f}%)".format(
+                td_str(slack), td_str(total_work, fixed_width=False), pct_slack
+            ),
             fg.RESET,
-            '\n',
-            sep='')
+            "\n",
+            sep="",
+        )

@@ -14,34 +14,45 @@ from colorama import Fore as fg
 from git import Repo
 from git.exc import GitCommandError
 
-HOME = os.path.expanduser('~')
+HOME = os.path.expanduser("~")
 
 COLORS = {
-    'A': fg.RED,
-    'M': fg.YELLOW,
-    'D': fg.GREEN,
-    'R': fg.CYAN,
-    }
+    "A": fg.RED,
+    "M": fg.YELLOW,
+    "D": fg.GREEN,
+    "R": fg.CYAN,
+}
 
-FILTER = re.compile('(%s)' % '|'.join([
-    '\.local/share/Trash',
-    '\.local/share/virtualenvs',
-    'vc/other',
-    'vc/dotfiles/atom/packages']))
+FILTER = re.compile(
+    "(%s)"
+    % "|".join(
+        [
+            r"\.local/share/Trash",
+            r"\.local/share/virtualenvs",
+            "vc/other",
+            "vc/dotfiles/atom/packages",
+        ]
+    )
+)
 
 
 # Parse simple arguments
 parser = argparse.ArgumentParser(description=__doc__.format(FILTER.pattern))
-parser.add_argument('--fetch', action='store_true',
-                    help='fetch remotes for comparison (slow)')
-parser.add_argument('--all', dest='verbose', action='store_true',
-                    help='also show information about ignored repos')
+parser.add_argument(
+    "--fetch", action="store_true", help="fetch remotes for comparison (slow)"
+)
+parser.add_argument(
+    "--all",
+    dest="verbose",
+    action="store_true",
+    help="also show information about ignored repos",
+)
 args = parser.parse_args()
 
 
 def find_repos():
     for dirpath, dirnames, _ in os.walk(HOME):
-        if '.git' in dirnames:
+        if ".git" in dirnames:
             yield Repo(dirpath)
 
 
@@ -49,16 +60,16 @@ def diff_lines(name, diffs):
     if len(diffs) == 0:
         return
 
-    print('  %s' % name)
+    print("  %s" % name)
 
     for d in diffs:
         path = d.a_path
         color = COLORS[d.change_type[0]]
-        print(color + '    %s' % path + fg.RESET)
+        print(color + "    %s" % path + fg.RESET)
 
 
 def plural(num):
-    return '{:d} commit{}'.format(num, 's' if num > 1 else '')
+    return "{:d} commit{}".format(num, "s" if num > 1 else "")
 
 
 clean = 0
@@ -75,8 +86,8 @@ for repo in find_repos():
 
     # Count number of commits ahead and/or behind upstream
     try:
-        ahead_query = '{0}@{{u}}..{0}'.format(repo.head.ref)
-        behind_query = '{0}..{0}@{{u}}'.format(repo.head.ref)
+        ahead_query = "{0}@{{u}}..{0}".format(repo.head.ref)
+        behind_query = "{0}..{0}@{{u}}".format(repo.head.ref)
         ahead = sum(1 for c in repo.iter_commits(ahead_query))
         behind = sum(1 for c in repo.iter_commits(behind_query))
     except (TypeError, GitCommandError):
@@ -84,9 +95,9 @@ for repo in find_repos():
 
     # Get the name of the current branch
     try:
-        branch = 'on: %s' % repo.active_branch
+        branch = "on: %s" % repo.active_branch
     except TypeError:
-        branch = 'detached HEAD'
+        branch = "detached HEAD"
 
     # Boolean variables describing repo status
     dirty = repo.is_dirty(untracked_files=True)
@@ -94,7 +105,7 @@ for repo in find_repos():
 
     if dirty or (ahead_or_behind and not quiet):
         # Identify the repository ahead of other information that may follow
-        print('\n~%s (%s)' % (repo.working_dir[len(HOME):], branch))
+        print("\n~%s (%s)" % (repo.working_dir[len(HOME) :], branch))
 
         if quiet:
             # A filtered repo, and we're not being verbose
@@ -106,22 +117,22 @@ for repo in find_repos():
 
     # Information about commits ahead or behind
     if ahead:
-        print(fg.MAGENTA + '  ← %s to push' % plural(ahead) + fg.RESET)
+        print(fg.MAGENTA + "  ← %s to push" % plural(ahead) + fg.RESET)
     if behind:
-        print(fg.BLUE + '  → %s to fast-forward' % plural(behind) + fg.RESET)
+        print(fg.BLUE + "  → %s to fast-forward" % plural(behind) + fg.RESET)
 
     # Information about the index and working tree
     # Staged
-    diff_lines('Staged', repo.index.diff(repo.head.commit))
+    diff_lines("Staged", repo.index.diff(repo.head.commit))
 
     # Modified in the working tree
-    diff_lines('Working tree', repo.index.diff(None))
+    diff_lines("Working tree", repo.index.diff(None))
 
     # Untracked files
     untracked = repo.untracked_files
     if len(untracked) > 20:
-        print('  (%d untracked files not listed)' % len(untracked))
+        print("  (%d untracked files not listed)" % len(untracked))
     elif len(untracked) > 0:
-        print('    ' + fg.GREEN + '\n    '.join(untracked) + fg.RESET)
+        print("    " + fg.GREEN + "\n    ".join(untracked) + fg.RESET)
 
-print('\n%d other clean & synced repositories\n' % clean)
+print("\n%d other clean & synced repositories\n" % clean)
