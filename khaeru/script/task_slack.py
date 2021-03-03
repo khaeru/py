@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Show slack time for scheduled tasks."""
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 from subprocess import check_output
 
 from colorama import Fore as fg
@@ -10,6 +10,8 @@ import pandas as pd
 # Current time zone
 LOCAL_TZ = datetime.now().astimezone().tzinfo
 NOW = datetime.now(LOCAL_TZ)
+TODAY = NOW.date()
+WEEKEND = [6, 7]
 
 
 def eowd(dt):
@@ -57,17 +59,22 @@ def get_tasks(query=["estimate.any:"]):
 
 def work_time_until(when):
     """Return a time delta until *when* including working time."""
-    if when.day == NOW.day:
-        result = when - NOW
-    else:
+    result = timedelta(0)
+
+    if when.date() > TODAY:
         # From now until EOD
-        result = eowd(NOW) - NOW
+        result += max(timedelta(0), eowd(NOW) - NOW)
 
         # Intervening days, if any
-        result += timedelta(hours=8) * (when.day - NOW.day - 1)
+        result += timedelta(hours=8) * sum(
+            map(
+                lambda d: (TODAY + timedelta(days=d)).isoweekday() not in WEEKEND,
+                range(1, (when.date() - TODAY).days),
+            )
+        )
 
-        # From the start of day on the due date 'til the end time or EOD
-        result += max(timedelta(0), min(when, eowd(when)) - sowd(when))
+    # From the start of day on the due date 'til the end time or EOD
+    result += max(timedelta(0), min(when, eowd(when)) - max(NOW, sowd(when)))
 
     return result
 
