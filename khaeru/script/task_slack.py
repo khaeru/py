@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Show slack time for scheduled tasks."""
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from subprocess import check_output
 
 from colorama import Fore as fg
