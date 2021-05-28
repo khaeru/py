@@ -1,10 +1,10 @@
 #!/bin/sh
 
 SCRIPT=`basename $0`
-if [ $SCRIPT = "synergy-jp" ]; then
+if [ $SCRIPT = "synergy-jp.sh" ]; then
   HOST=esdceeprjpstudent1.mit.edu
   AUTO_USER=pnk
-elif [ $SCRIPT = "synergy-kd" ]; then
+elif [ $SCRIPT = "synergy-kd.sh" ]; then
   HOST=192.168.1.2
   AUTO_USER=khaeru
 fi
