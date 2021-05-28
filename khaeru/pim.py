@@ -1,11 +1,4 @@
-#!/usr/bin/env python3
-"""Personal information management utility.
-
-\b
-© 2017–2020 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
-Licensed under the GNU GPL v3.
-
-"""
+"""Personal information management utility."""
 from glob import glob
 from os.path import expanduser, join
 from pathlib import Path
@@ -14,6 +7,8 @@ from subprocess import check_call, call, check_output, run, PIPE
 
 import click
 from xdg.BaseDirectory import xdg_config_home, xdg_data_home
+
+from .task_slack import get_tasks, main as slack
 
 
 CLAWS_CACHE = (
@@ -28,9 +23,6 @@ CLAWS_CACHE = (
 def cli(ctx):
     if ctx.invoked_subcommand is None:
         status()
-
-
-from task_slack import get_tasks, main as slack  # noqa: E402
 
 
 cli.add_command(click.Command("slack", callback=slack, help=slack.__doc__))
@@ -251,7 +243,3 @@ def mail(action):
     elif action == "stop":
         check_call(["timew", "stop"])
         check_call(["timew", "tag", "@1", f"to:{count}"])
-
-
-if __name__ == "__main__":
-    cli()
