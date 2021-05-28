@@ -80,11 +80,11 @@ def get_commit_hash():
 
     A '+' is appended if the current directory is dirty.
     """
-    repo = Repo('.', search_parent_directories=True)
-    path = Path('.').resolve().relative_to(repo.working_dir)
+    repo = Repo(".", search_parent_directories=True)
+    path = Path(".").resolve().relative_to(repo.working_dir)
     result = repo.head.commit.hexsha[:7]
     if repo.is_dirty(path=path):
-        result += '+'
+        result += "+"
     return result
 
 
@@ -136,13 +136,14 @@ def list_files(config):
         for group in groups:
             # Make sure group['files'] contains a list of patterns
             if isinstance(group, str):
-                group = {'files': [group]}
-            elif isinstance(group['files'], str):
-                group['files'] = [group['files']]
+                group = {"files": [group]}
+            elif isinstance(group["files"], str):
+                group["files"] = [group["files"]]
 
             # Determine files matching the patterns
-            files = chain(*[iglob(pattern, recursive=True) for pattern in
-                            group['files']])
+            files = chain(
+                *[iglob(pattern, recursive=True) for pattern in group["files"]]
+            )
 
             # Expand any director(ies)
             files = chain(*map(expand_dir, files))
@@ -153,15 +154,14 @@ def list_files(config):
 
             # Apply the name template, if any
             try:
-                func = partial(format_name, group['name_template'], **args)
+                func = partial(format_name, group["name_template"], **args)
                 files = map(func, files)
             except KeyError:
                 pass
 
             # Set the target subdirectory, if any
             try:
-                files = map(partial(add_remote_dir, group['subdir']),
-                            files)
+                files = map(partial(add_remote_dir, group["subdir"]), files)
             except KeyError:
                 pass
 
@@ -179,16 +179,16 @@ def list_files(config):
 def upload_files(remote, files, rclone_args):
     """Upload the *files* to *remote*."""
     # Command-line for invoking rclone
-    cmd = ['rclone', 'copyto', '--copy-links']
+    cmd = ["rclone", "copyto", "--copy-links"]
     cmd.extend(rclone_args)
 
     # Create a temporary directory full of symlinks. The contents of this
     # directory have the the same directory structure intended for the remote.
-    with TemporaryDirectory(prefix='rclone-') as d:
-        cmd.extend([d, remote + ':'])
+    with TemporaryDirectory(prefix="rclone-") as d:
+        cmd.extend([d, remote + ":"])
 
         for src, dest in files:
-            tmp_dest = d / dest.relative_to('/')
+            tmp_dest = d / dest.relative_to("/")
             makedirs(tmp_dest.parent, exist_ok=True)
             symlink(src, tmp_dest)
 
@@ -196,28 +196,23 @@ def upload_files(remote, files, rclone_args):
         p = Popen(cmd, stdout=PIPE, stderr=STDOUT)
 
         # Transfer rclone output to stdout
-        for line in iter(p.stdout.readline, b''):
+        for line in iter(p.stdout.readline, b""):
             stdout.write(line.decode(stdout.encoding))
 
         p.wait()
         exit(p.returncode)
 
 
-@click.command(help=__doc__,
-               context_settings=dict(ignore_unknown_options=True))
-@click.argument('rclone_args', metavar='ARGS', nargs=-1,
-                type=click.UNPROCESSED)
-def rclone_push(rclone_args):
+@click.command(help=__doc__, context_settings=dict(ignore_unknown_options=True))
+@click.argument("rclone_args", metavar="ARGS", nargs=-1, type=click.UNPROCESSED)
+def cli(rclone_args):
     # Read configuration
-    with open('.rclone-push.yaml') as f:
+    with open(".rclone-push.yaml") as f:
         files_config = yaml.load(f)
-        remote = files_config.pop('remote')
+        remote = files_config.pop("remote")
 
     # Identify files
     files = list_files(files_config)
 
     # Upload
     upload_files(remote, files, rclone_args)
-
-
-rclone_push()
