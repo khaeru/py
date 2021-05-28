@@ -1,0 +1,4 @@
+exclude .git*
+prune .git*
+exclude .readthedocs.yaml
+prune khaeru/old
