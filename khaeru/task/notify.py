@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Show a GNOME notification with Taskwarrior & Timewarrior information."""
 from subprocess import call, run, PIPE
 
@@ -64,6 +63,7 @@ GLib.timeout_add(5000, closed_cb)
 if action:
     obj.add_action("action_click", "Stop task & timer", stop_cb)
 
-obj.show()
 
-Gtk.main()
+def main():
+    obj.show()
+    Gtk.main()

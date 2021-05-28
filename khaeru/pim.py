@@ -8,7 +8,7 @@ from subprocess import check_call, call, check_output, run, PIPE
 import click
 from xdg.BaseDirectory import xdg_config_home, xdg_data_home
 
-from .task_slack import get_tasks, main as slack
+from .task.slack import get_tasks, main as slack
 
 
 CLAWS_CACHE = (
