@@ -1,0 +1,116 @@
+#!/usr/bin/env python
+"""N-way Unison wrapper
+
+This script conducts a star-topology sync between N computers using Unison. The
+computers and Unison configurateion are described in a file with the extension
+.grp, stored in the user's Unison configuration directory ($HOME/.unison). The
+file conforms to the format described at
+http://docs.python.org/library/configparser.html:
+
+  [n-way]
+  config=example.prf # Unison configuration to use
+  axis=hostname-a    # Center of the star
+
+  [hostname-a]
+  local=local_root_directory
+  remote=remote_root_directory
+
+  [hostname-b]
+  local=local_root_directory
+  remote=remote_root_directory
+
+  [hostname-c]
+  local=local_root_directory
+  remote=remote_root_directory
+
+  ...
+
+n-way will try to determine the host on which it is being invoked on by matching
+the hostname. It then syncs each host against the host identified in *axis*. It
+is assumed that the *remote* address for each host is accessible from any other
+host in the group.
+"""
+import ConfigParser
+import os, os.path
+import re
+import sys
+import uuid
+
+
+def usage():
+    print "Blarg!"
+    sys.exit(2)
+
+
+def fail(message, code=1):
+    print u"%s: %s" % (os.path.basename(sys.argv[0]), message)
+    sys.exit(code)
+
+
+def main(argv):
+    # read configuration files
+    try:
+        group_name = argv[0]
+    except IndexError:
+        usage()
+    unison_dir = u"%s/.unison" % os.environ['HOME']
+    grp_file = u"%s/%s.grp" % (unison_dir, group_name)
+    try:
+        os.stat(unison_dir)
+        cfg = ConfigParser.ConfigParser()
+        cfg.readfp(open(grp_file))
+    except OSError:
+        fail("cannot access %s: no such directory" % unison_dir)
+    except IOError:
+        fail("cannot access %s: no such file" % grp_file)
+    # check Unison profile
+    profile_name = cfg.get('n-way', 'profile')
+    prf_file = u"%s/%s.prf" % (unison_dir, profile_name)
+    try:
+        os.stat(prf_file)
+    except OSError:
+        fail("cannot access unison profile %s: no such file" % prf_file)
+    # match hostname
+    localhost = os.uname()[1]
+    hosts = filter(lambda h: h != 'n-way', cfg.sections())
+    if localhost not in hosts:
+        fail("hostname '%s' does not match hosts in %s:\n  %s" %
+          (localhost, grp_file, hosts))
+    # identify the access host
+    axis = cfg.get('n-way', 'axis')
+    hosts = filter(lambda h: h != axis, hosts)
+    # filter it out of the list
+    if axis == localhost:
+        axis_host = cfg.get(axis, 'local')
+    else:
+        axis_host = cfg.get(axis, 'remote')
+    # write temporary profiles
+    ids = []
+    for h in hosts:
+        if h == axis:
+            continue
+        ids.append(uuid.uuid4())
+        f = open('%s/%s.prf' % (unison_dir, ids[-1]), 'w')
+        f.write(u"root = %s\n" % axis_host)
+        if h == localhost:
+            f.write(u"root = %s\n" % cfg.get(h, 'local'))
+        else:
+            f.write(u"root = %s\n" % cfg.get(h, 'remote'))
+        f.write(u"include %s\n" % profile_name)
+        f.close()
+    for prf in ids:
+        os.system('unison %s' % prf)
+    [os.remove('%s/%s.prf' % (unison_dir, id_)) for id_ in ids]
+
+    # locate .grp files
+#    files = os.listdir(unison_dir)
+#    opts, args = getopt.getopt(argv)
+#    expr = re.compile(".*\.gro$")
+#    grp_files = filter(None, [expr.match(f) for f in files])
+#    print [f.string for f in grp_files]
+
+#     uuid.getnode() for a hardware ID based on MAC address
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
+

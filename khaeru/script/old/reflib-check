@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+# Check a Referencer library
+from os import listdir
+from os.path import exists, isdir
+from urllib.parse import unquote
+from xml.dom.minidom import parse
+
+
+libfile = 'all.reflib'
+ignore = set([
+  '.git',
+  '.gitignore',
+  '.rsync-filter',
+  'all.bib',
+  'all.reflib',
+  'README',
+  ])
+
+
+## {{{ http://code.activestate.com/recipes/303061/ (r2) with modifications
+from xml.dom import Node
+def remove_whitespace_nodes(node, unlink=False):
+    """Removes all of the whitespace-only text decendants of a DOM node.
+    
+    When creating a DOM from an XML source, XML parsers are required to
+    consider several conditions when deciding whether to include
+    whitespace-only text nodes. This function ignores all of those
+    conditions and removes all whitespace-only text decendants of the
+    specified node. If the unlink flag is specified, the removed text
+    nodes are unlinked so that their storage can be reclaimed. If the
+    specified node is a whitespace-only text node then it is left
+    unmodified."""
+    
+    remove_list = []
+    for child in node.childNodes:
+        if child.nodeType == Node.TEXT_NODE and \
+           not child.data.strip():
+            remove_list.append(child)
+        elif child.hasChildNodes():
+            remove_whitespace_nodes(child, unlink)
+    for node in remove_list:
+        node.parentNode.removeChild(node)
+        if unlink:
+            node.unlink()
+## end of http://code.activestate.com/recipes/303061/ }}}
+
+
+def check():
+    # parse the library
+    dom = parse(libfile)
+    remove_whitespace_nodes(dom)
+    # find the tag 'no-file'
+    for e in dom.getElementsByTagName('name'):
+        if e.firstChild.data == 'no-file':
+            no_file = e.previousSibling.firstChild.data
+            break
+    # process all documents in the library
+    entries = set()
+    for e in dom.getElementsByTagName('relative_filename'):
+        # check that the 
+        skip = False
+        for e2 in e.parentNode.getElementsByTagName('tagged'):
+            if e2.firstChild.data == no_file:
+                skip = True
+        if not skip and e.firstChild:
+            entries.add(unquote(e.firstChild.data))
+    # get the set of files in the current directory
+    files = set(filter(lambda x: not isdir(x),
+              listdir('.'))).difference(ignore)
+    # output
+    print('Files not in %s:\n  ' % libfile,
+      '\n  '.join(sorted(files.difference(entries))),
+      '\n\nEntries from %s without files:\n  ' % libfile,
+      '\n  '.join(entries.difference(files)), sep='')
+
+
+if __name__ == '__main__':
+    check()

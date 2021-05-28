@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Show a GNOME notification with Taskwarrior & Timewarrior information."""
+from subprocess import call, run, PIPE
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Notify", "0.7")
+
+from gi.repository import GLib, Gtk, Notify  # noqa: E402
+
+Notify.init("Taskwarrior & Timewarrior notifications")
+
+
+tasks = (
+    run(["task", "+ACTIVE", "+PENDING", "_unique", "description"], stdout=PIPE)
+    .stdout.decode()
+    .split("\n")
+)
+tasks = list(filter(len, tasks))
+
+timing = run(["timew"], stdout=PIPE).stdout.decode().split("\n")
+
+try:
+    time_tracking = filter(
+        lambda s: not (s.startswith('"uuid:') or s == "Tracking"), timing[0].split()
+    )
+    time_tracking = " ".join(time_tracking)
+
+    time_total = timing[3].replace("Total", "").strip()
+except IndexError:
+    time_tracking = None
+
+if len(tasks) == 0 and time_tracking is None:
+    message = "Not tracking time!"
+    body = "Please keep track of what you're doing."
+    icon = "dialog-warn"
+    action = False
+else:
+    message = "Active tasks: {}".format(", ".join(tasks))
+    body = "Total time tracked for {}: {}".format(time_tracking, time_total)
+    icon = "dialog-information"
+    action = True
+
+
+obj = Notify.Notification.new(message, body, icon)
+
+
+def stop_cb(*args):
+    call(["task", "+ACTIVE", "+PENDING", "stop"])
+    call(["timew", "stop"])
+    Gtk.main_quit()
+
+
+def closed_cb(*args):
+    obj.close()
+    Notify.uninit()
+    Gtk.main_quit()
+
+
+obj.connect("closed", closed_cb)
+GLib.timeout_add(5000, closed_cb)
+
+if action:
+    obj.add_action("action_click", "Stop task & timer", stop_cb)
+
+obj.show()
+
+Gtk.main()

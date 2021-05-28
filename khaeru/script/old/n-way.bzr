@@ -1,0 +1,20 @@
+#!/bin/sh
+
+if [ -f "$1/.n-way" ]
+then
+  HOSTS=`cat $1/.n-way`
+fi
+
+ssh-add
+
+THIS_HOST=`hostname`
+SYNC_HOSTS=""
+for host in $HOSTS
+do
+  if [ $host != $THIS_HOST -a `ssh $host echo check` = "check" ]
+  then
+    SYNC_HOSTS="$host $SYNC_HOSTS"
+  fi
+done
+
+echo $SYNC_HOSTS
