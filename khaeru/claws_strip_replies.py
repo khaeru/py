@@ -1,6 +1,5 @@
-#!/usr/bin/env python
-# encoding: utf-8
 """Claws Mail plugin to strip cruft from quoted replies.
+
 © 2018 Paul Natsuo Kishimoto <mail@paul.kishimoto.name>
 Licensed under the GNU GPL v3.
 
@@ -26,7 +25,7 @@ Developer notes:
 import logging
 import re
 
-log = logging.getLogger('strip-replies')
+log = logging.getLogger("strip-replies")
 
 # Remove existing handlers, which may exist if Claws Mail has run this script
 for h in log.handlers:
@@ -35,7 +34,7 @@ for h in log.handlers:
 # DEBUG uncomment this line to allow debugging content to go to the log file
 # log.setLevel(logging.DEBUG)
 
-handler = logging.FileHandler('/tmp/strip-replies.log')
+handler = logging.FileHandler("/tmp/strip-replies.log")
 log.addHandler(handler)
 
 
@@ -50,23 +49,24 @@ class Line:
     - is_empty: True if the line is empty.
     - is_sig_separator: True if the line is the signature separator '--'.
     """
-    line_re = re.compile('([> ]*)(.*)')
+
+    line_re = re.compile("([> ]*)(.*)")
 
     def __init__(self, text):
         self.text = text
         self.skip = False
 
         groups = self.line_re.match(text).groups()
-        quoting, self.body = groups if len(groups) > 0 else ('', '')
+        quoting, self.body = groups if len(groups) > 0 else ("", "")
 
         # Quotation depth of the line
-        self.depth = len(quoting.replace(' ', ''))
+        self.depth = len(quoting.replace(" ", ""))
 
         # Line is empty except for quotation marks
         self.is_empty = len(self.body.strip()) == 0
 
         # Line is signature marker
-        self.is_sig_separator = self.body == '--'
+        self.is_sig_separator = self.body == "--"
 
 
 def strip_replies():
@@ -104,7 +104,7 @@ def strip_replies_from_text(text):
 
     # Iterate over lines in the message text
     lines = []
-    for line in map(Line, text.split('\n')):
+    for line in map(Line, text.split("\n")):
         if sig_state[0] and line.depth != sig_state[1]:
             # Quotation depth has changed → previous signature has ended
             sig_state = [False, -1, -1]
@@ -113,8 +113,9 @@ def strip_replies_from_text(text):
         if line.is_empty:
             # Skip 2nd or greater consecutive empty line; or any empty line in
             # a signature
-            line.skip = (line.depth > 0 and lines[-1].is_empty and
-                         lines[-1].depth == line.depth) or sig_state[0]
+            line.skip = (
+                line.depth > 0 and lines[-1].is_empty and lines[-1].depth == line.depth
+            ) or sig_state[0]
         elif sig_state[0]:
             # Line isn't empty, but processing a signature
 
@@ -130,12 +131,13 @@ def strip_replies_from_text(text):
             sig_state = [True, line.depth, 0]
 
         # DEBUG information about the current line
-        log.debug('{0.skip:d} {1} {0.is_sig_separator:d} {0.text}'
-                  .format(line, sig_state))
+        log.debug(
+            "{0.skip:d} {1} {0.is_sig_separator:d} {0.text}".format(line, sig_state)
+        )
 
         lines.append(line)
 
-    result = '\n'.join([l.text for l in lines if not l.skip])
+    result = "\n".join([l.text for l in lines if not l.skip])
 
     # DEBUG the replacement text
     log.debug(result)
@@ -143,7 +145,7 @@ def strip_replies_from_text(text):
     return result
 
 
-if __name__ == '__main__':
+def main():
     # DEBUG write the current date and time
     from datetime import datetime
 
@@ -153,5 +155,5 @@ if __name__ == '__main__':
     try:
         strip_replies()
     except Exception as e:
-        log.error('Exception: {}'.format(e))
+        log.error("Exception: {}".format(e))
         raise
