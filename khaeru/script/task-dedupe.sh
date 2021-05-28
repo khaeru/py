@@ -1,5 +1,5 @@
 #!/bin/sh
-# some snippets to assist with removing duplicate tasks in taskwarrior
+# Some snippets to assist with removing duplicate tasks in taskwarrior
 
 task diagnostics | grep "Found duplicate" | sed -e "s/^\s*Found duplicate //" >dupes.txt
 
