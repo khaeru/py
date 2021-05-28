@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Suggest whether to install Python packages using apt, or pip."""
 
 from collections import defaultdict
@@ -137,7 +136,3 @@ def main(requirement, specs):
         no_action,
         sep="\n\n",
     )
-
-
-if __name__ == "__main__":
-    main()

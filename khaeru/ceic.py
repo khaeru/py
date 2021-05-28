@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Process data exported from the CEIC database
 USAGE: ceic.py [FILE]...
 
@@ -73,29 +72,34 @@ import sys
 
 # header rows in data files
 HEADERS = (
-    'name',
-    'country',
-    'frequency',
-    'unit',
-    'source',
-    'status',
-    'series code',
-    'function info',
-    'first obs',
-    'last obs',
-    'updated',
-    )
+    "name",
+    "country",
+    "frequency",
+    "unit",
+    "source",
+    "status",
+    "series code",
+    "function info",
+    "first obs",
+    "last obs",
+    "updated",
+)
 # Regexes used in `clean_data()`
 _clean_re = {
-    'series code': re.compile('(\d+) \(([A-Z]+)\)'),
-    }
+    "series code": re.compile(r"(\d+) \(([A-Z]+)\)"),
+}
 # Regexes for date formats used in `date_munge()`
-_munge = tuple([re.compile(exp) for exp in [
-    '((1/)?1/)?0001',
-    '(?P<year>\d{4})(\.0)?$',
-    '(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})',
-    '((?P<day>\d{1,2})/)?(?P<month>\d{1,2})/(?P<year>\d{4})',
-    ]])
+_munge = tuple(
+    [
+        re.compile(exp)
+        for exp in [
+            "((1/)?1/)?0001",
+            r"(?P<year>\d{4})(\.0)?$",
+            r"(?P<year>\d{4})-(?P<month>\d{2})-(?P<day>\d{2})",
+            r"((?P<day>\d{1,2})/)?(?P<month>\d{1,2})/(?P<year>\d{4})",
+        ]
+    ]
+)
 
 
 def clean_data(s):
@@ -106,39 +110,39 @@ def clean_data(s):
     a dict with keys that are date tuples and values that are floats.
     """
     # Tokenize the name into a tuple
-    name = s['info']['name'].split(': ')
+    name = s["info"]["name"].split(": ")
     try:  # Remove an initial 'CN'
-        name.remove('CN')
+        name.remove("CN")
     except ValueError:
         pass
-    s['info']['name'] = tuple(name)
+    s["info"]["name"] = tuple(name)
     # Convert the series code into a tuple
-    sc = _clean_re['series code'].match(s['info']['series code']).groups()
-    s['info']['series code'] = (int(sc[0]), sc[1])
+    sc = _clean_re["series code"].match(s["info"]["series code"]).groups()
+    s["info"]["series code"] = (int(sc[0]), sc[1])
     # Rationalize first, last and update dates
-    for i in ('first obs', 'last obs', 'updated'):
-        s['info'][i] = date_munge(s['info'][i])
+    for i in ("first obs", "last obs", "updated"):
+        s["info"][i] = date_munge(s["info"][i])
     # Clean up date tuples for obsevations
-    if 'Annual' in s['info']['frequency']:
+    if "Annual" in s["info"]["frequency"]:
         # Strip -12-00 or -12-01 from dates
-        for k in sorted(s['obs'].keys()):
+        for k in sorted(s["obs"].keys()):
             if k[1:] == (12, 0) or k[1:] == (12, 1):
-                s['obs'][(k[0], 0, 0)] = s['obs'].pop(k)
-    elif 'Quarterly' in s['info']['frequency'] or ('Monthly' in
-                                                   s['info']['frequency']):
+                s["obs"][(k[0], 0, 0)] = s["obs"].pop(k)
+    elif "Quarterly" in s["info"]["frequency"] or ("Monthly" in s["info"]["frequency"]):
         # Strip -01 from dates
-        for k in sorted(s['obs'].keys()):
+        for k in sorted(s["obs"].keys()):
             if k[2] == 1:
-                s['obs'][(k[0], k[1], 0)] = s['obs'].pop(k)
+                s["obs"][(k[0], k[1], 0)] = s["obs"].pop(k)
     else:
-        raise ValueError('Unrecognized frequency: {} for series {}'.format(
-            s['info'][2], s['info'][0]))
+        raise ValueError(
+            "Unrecognized frequency: {} for series {}".format(
+                s["info"][2], s["info"][0]
+            )
+        )
 
 
 def read_data(files, clean=True):
-    """Read CEIC data from *files*
-
-    """
+    """Read CEIC data from *files*"""
     data = []  # Each entry is one data series
     # One set for each header, plus one for observation dates
     info = dict.fromkeys(HEADERS, set())
@@ -152,8 +156,12 @@ def read_data(files, clean=True):
                 if row_num == 0:  # First row
                     # Extend the data list to accommodate the series (columns)
                     # in this file
-                    data.extend([dict(info=dict.fromkeys(HEADERS), obs={}) for
-                                i in range(len(row) - 1)])
+                    data.extend(
+                        [
+                            dict(info=dict.fromkeys(HEADERS), obs={})
+                            for i in range(len(row) - 1)
+                        ]
+                    )
                 # First column of the file has no data, only labels
                 label = row.pop(0)
                 if row_num >= len(HEADERS):
@@ -165,19 +173,19 @@ def read_data(files, clean=True):
                     if row_num < len(HEADERS):
                         # First entries in each column are series information
                         info[HEADERS[row_num]].add(entry)
-                        data[d0+col]['info'][HEADERS[row_num]] = entry
+                        data[d0 + col]["info"][HEADERS[row_num]] = entry
                     else:  # Subsequent entries are observations
                         try:  # Convert str → float
                             entry = float(entry)
                             count += 1
                         except ValueError as e:
-                            if entry == '':  # Empty entry → no data
+                            if entry == "":  # Empty entry → no data
                                 continue
                             # Non-float, non-empty entry
                             print(entry)
                             raise e
                         # Save the observation
-                        data[d0+col]['obs'][dates[-1]] = entry
+                        data[d0 + col]["obs"][dates[-1]] = entry
         if clean:
             for s in data[d0:]:
                 clean_data(s)
@@ -196,38 +204,41 @@ def date_munge(raw):
         match = exp.match(str(raw))
         if match:
             d = match.groupdict(0)
-            result = [d.get('year', 0), d.get('month', 0), d.get('day', 0)]
+            result = [d.get("year", 0), d.get("month", 0), d.get("day", 0)]
             return tuple(map(int, result))
     raise ValueError("Unrecognized date: '{}'".format(raw))
 
 
-date_str = lambda raw: '{:04}-{:02}-{:02}'.format(*raw).split('-00')[0]
+def date_str(raw):
+    return "{:04}-{:02}-{:02}".format(*raw).split("-00")[0]
 
 
-if __name__ == '__main__':
+def main():
     # read the data
     files = sys.argv[1:]
     assert len(files) > 0 and all(map(isfile, files))
     data, count, info = read_data(files)
     dates = set()
     for series in data:
-        dates.update(set(series['obs'].keys()))
+        dates.update(set(series["obs"].keys()))
 
     # dump to a single CSV file in roughly the same format, series in rows
-    with open('out.csv', 'w') as f:
-        w = csv.writer(f, delimiter='\t', lineterminator=linesep)
+    with open("out.csv", "w") as f:
+        w = csv.writer(f, delimiter="\t", lineterminator=linesep)
         w.writerow(list(HEADERS) + sorted(map(date_str, dates)))
         for series in data:
-            w.writerow(list([series['info'][k] for k in HEADERS[:-3]]) + list(
-                       [date_str(series['info'][k]) for k in HEADERS[-3:]]) +
-                       list([series['obs'].get(d) for d in sorted(dates)]))
+            w.writerow(
+                list([series["info"][k] for k in HEADERS[:-3]])
+                + list([date_str(series["info"][k]) for k in HEADERS[-3:]])
+                + list([series["obs"].get(d) for d in sorted(dates)])
+            )
 
     # Construct a tree of the series names
     def print_tree(parent, level=0):
-        f.write('{}\n'.format(parent[None]) if None in parent else '\n')
+        f.write("{}\n".format(parent[None]) if None in parent else "\n")
         for k in sorted(filter(None, parent.keys())):
-            f.write('{:<37}'.format(' ' * level * 2 + k))
-            print_tree(parent[k], level+1)
+            f.write("{:<37}".format(" " * level * 2 + k))
+            print_tree(parent[k], level + 1)
 
     def tree_add(parent, path, data):
         if len(path) == 0:
@@ -239,7 +250,10 @@ if __name__ == '__main__':
 
     tree = {}
     for series in data:
-        tree_add(tree, series['info']['name'], series['info']['series code'][1]
-                 + ': ' + ': '.join(series['info']['name']))
-    with open('tree.txt', 'w') as f:
+        tree_add(
+            tree,
+            series["info"]["name"],
+            series["info"]["series code"][1] + ": " + ": ".join(series["info"]["name"]),
+        )
+    with open("tree.txt", "w") as f:
         print_tree(tree)

@@ -1,15 +1,13 @@
-#!/usr/bin/env python3
 """USAGE: {} MOUNT [MAP]
 Add documents on the Kindle DX mounted at MOUNT to collections according to
 MAP. MAP should be a JSON document in the format:
 
-  { DIR1: C1 
+  { DIR1: C1
 
 http://kcollect.googlecode.com/svn/trunk/kcollect
 
 """
 from collections import defaultdict
-from datetime import datetime, timezone
 from hashlib import sha1
 import json
 import os
@@ -17,22 +15,23 @@ import os.path
 import sys
 
 
-HASH_PREFIX = '/mnt/us/'
-LANG = 'en-US'
+HASH_PREFIX = "/mnt/us/"
+LANG = "en-US"
 FILEEXT = [
-    'pdf',
-    ]
+    "pdf",
+]
+
 
 def compute_hash(fn):
     """Compute the Kindle DX hash for file name *fn*
-    
-    *fn* should be given relative to the mount root 
+
+    *fn* should be given relative to the mount root
     """
-    return sha1((os.path.join(HASH_PREFIX,fn)).encode()).hexdigest()
+    return sha1((os.path.join(HASH_PREFIX, fn)).encode()).hexdigest()
 
 
 # commented: currently unused
-#def touch_collection(data, cname):
+# def touch_collection(data, cname):
 #    """Create a collection *cname* in collection list *data*."""
 #    cname = 'name@{}'.format(LANG)
 #    if cname not in data.keys():
@@ -42,22 +41,22 @@ def compute_hash(fn):
 
 def add_file(data, collection, filepath):
     """Add *filepath* to collection *cname* in collection list *data*"""
-    fhash = '*{}'.format(compute_hash(filepath))
-    if fhash not in kdx[current]['items']:
-        kdx[current]['items'].append(fhash)
+    fhash = "*{}".format(compute_hash(filepath))
+    if fhash not in kdx[current]["items"]:
+        kdx[current]["items"].append(fhash)
         return True
     else:
         return False
 
 
 try:
-    mnt_root = os.path.join(sys.argv[1], 'documents')
-    with open(os.path.join(sys.argv[1], 'system', 'collections.json')) as f:
+    mnt_root = os.path.join(sys.argv[1], "documents")
+    with open(os.path.join(sys.argv[1], "system", "collections.json")) as f:
         kdx = json.load(f)
     if len(sys.argv) == 3:
         fn = sys.argv[2]
     elif len(sys.argv) == 2:
-        fn = os.path.join(sys.argv[1], 'system', 'map.json')
+        fn = os.path.join(sys.argv[1], "system", "map.json")
     else:
         raise IndexError
     with open(fn) as f:
@@ -71,17 +70,16 @@ except FileNotFoundError as e:
 found = defaultdict(list)
 added = defaultdict(list)
 
-for root, dirs, files in os.walk(os.path.join(sys.argv[1], 'documents'),
-    topdown=False):
+for root, dirs, files in os.walk(os.path.join(sys.argv[1], "documents"), topdown=False):
     root = root.split(sys.argv[1])[1].lstrip(os.path.sep)
-    if root in map: # this directory explicitly assigned to a collection
+    if root in map:  # this directory explicitly assigned to a collection
         current_base = root
     elif any([d in root for d in map.keys()]):
         current_base = list(filter(lambda d: d in root, map.keys()))[0]
     else:
         continue
-    current = '{}@{}'.format(map[current_base], LANG)
-    print('{} matches collection {}'.format(root, current))
+    current = "{}@{}".format(map[current_base], LANG)
+    print("{} matches collection {}".format(root, current))
     for f in files:
         if os.path.splitext(f)[1][1:] not in FILEEXT:
             continue
@@ -91,11 +89,10 @@ for root, dirs, files in os.walk(os.path.join(sys.argv[1], 'documents'),
             found[current_base].append(f)
 
 for root, name in map.items():
-    a = set(kdx['{}@{}'.format(name, LANG)]['items'])
+    a = set(kdx["{}@{}".format(name, LANG)]["items"])
     b = set(found[root])
     c = set(added[root])
-    print('{}:\n  {} listed, {} found, {} added'.format(name, len(a), len(b),
-                                                        len(c)))
+    print("{}:\n  {} listed, {} found, {} added".format(name, len(a), len(b), len(c)))
 
-with open(os.path.join(sys.argv[1], 'system', 'collections.json.new'), 'w') as f:
-    json.dump(kdx, f, separators=(',\n', ':\n'))
+with open(os.path.join(sys.argv[1], "system", "collections.json.new"), "w") as f:
+    json.dump(kdx, f, separators=(",\n", ":\n"))
