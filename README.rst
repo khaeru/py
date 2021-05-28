@@ -44,7 +44,7 @@ Python submodules
    …
 
 ``khaeru.pelican_ipython``
-   Render IPython snippets in Pelican pages.
+   Render IPython snippets in Pelican pages, with the help of the Sphinx extension `IPython.sphinxext <https://ipython.readthedocs.io/en/stable/sphinxext.html>`_.
    See e.g. https://paul.kishimoto.name/2021/01/handling-country-codes/
 
 ``khaeru.task``
