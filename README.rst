@@ -37,6 +37,10 @@ For some of the submodules, below, there are additional requirements; find and i
 Contents
 ========
 
+.. contents::
+   :local:
+   :backlinks: none
+
 Python submodules
 -----------------
 
