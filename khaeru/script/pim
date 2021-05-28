@@ -18,9 +18,7 @@ from xdg.BaseDirectory import xdg_config_home, xdg_data_home
 
 CLAWS_CACHE = (
     Path(xdg_data_home)
-    .joinpath(
-        "claws-mail/imapcache/box2381.bluehost.com/mail@paul.kishimoto.name/INBOX"
-    )
+    .joinpath("claws-mail/imapcache/imap.fastmail.com/khaeru@fastmail.com")
     .expanduser()
 )
 
@@ -184,10 +182,15 @@ def sent():
 
 
 def _count_mail():
+    exclude = [".claws_cache", ".claws_mark"]
     counts = []
-    for dir in (CLAWS_CACHE, CLAWS_CACHE / "0 List traffic"):
-        # Subtract 2 for .claws_cache, .claws_mark
-        counts.append(sum(int(path.is_file()) for path in dir.iterdir()) - 2)
+    for dir in (CLAWS_CACHE / "INBOX", CLAWS_CACHE / "0 List traffic"):
+        counts.append(
+            sum(
+                int(path.is_file() and path.name not in exclude)
+                for path in dir.iterdir()
+            )
+        )
     return counts
 
 
