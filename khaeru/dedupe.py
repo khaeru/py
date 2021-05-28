@@ -178,9 +178,6 @@ def cli(filename, limit, use_cache):
                 break
 
 
-cli()
-
-
 # Old methods
 
 
