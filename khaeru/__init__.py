@@ -46,3 +46,8 @@ def deps(name):
         print(config["options.extras_require"][name].strip())
     except KeyError:
         raise click.ClickException(f"No submodule/dependencies for {name}")
+
+
+from . import music
+
+cli.add_command(music.cli)
