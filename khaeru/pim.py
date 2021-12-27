@@ -1,9 +1,9 @@
 """Personal information management utility."""
+import re
 from glob import glob
 from os.path import expanduser, join
 from pathlib import Path
-import re
-from subprocess import check_call, call, check_output, run, PIPE
+from subprocess import CalledProcessError, call, check_call, check_output
 
 import click
 from xdg.BaseDirectory import xdg_config_home, xdg_data_home
@@ -102,13 +102,11 @@ def weeklog():
     """Weekly log."""
     info = [
         "Completed tasks:",
-        run(
-            ["task", "+COMPLETED", "end.after:socw", "all"], stdout=PIPE
-        ).stdout.decode(),
+        check_output(["task", "+COMPLETED", "end.after:socw", "all"], text=True),
         "Time worked:",
-        check_output(["timew", "summary", "sow", "-", "now"]).decode(),
+        check_output(["timew", "summary", "sow", "-", "now"], text=True),
         "Untracked gaps:",
-        check_output(["timew", "gaps", "sow", "-", "now"]).decode(),
+        check_output(["timew", "gaps", "sow", "-", "now"], text=True),
     ]
 
     print("\n".join(info))
@@ -118,13 +116,12 @@ def weeklog():
 def sent():
     """Compare # of sent e-mails by day of the year.
 
-    E-mails in the Claws Mail IMAP cache for folders named Sent/[year] folder
-    are counted by day of year, with cumulative totals displayed for the
-    current and previous years.
+    E-mails in the Claws Mail IMAP cache for folders named Sent/[year] folder are
+    counted by day of year, with cumulative totals displayed for the current and
+    previous years.
 
-    If messages are not cached locally, they are not counted. Empty years, and
-    messages with Unicode errors, malformatted dates, or no 'Date:' header are
-    skipped.
+    If messages are not cached locally, they are not counted. Empty years, and messages
+    with Unicode errors, malformatted dates, or no 'Date:' header are skipped.
     """
     from collections import defaultdict
     from datetime import datetime
@@ -199,26 +196,31 @@ def _count_mail():
 @click.pass_context
 def status(ctx):
     """Summary of tasks (default command)."""
-    print("\nTasks")
-    active = get_tasks(["+ACTIVE"])
-    print(f"  {len(get_tasks(['+OVERDUE'])):3d} overdue")
-    print(f"  {len(active):3d} active", end="")
-    print(" (`ta` for more):" if len(active) else "")
+    active = task_client.export(["+ACTIVE"])
+    count = _count_mail()
+    refspath = expanduser("~/Documents/reference/0sort")
+
+    print(
+        f"""
+Tasks
+  {len(task_client.export(['+OVERDUE'])):3d} overdue
+  {len(active):3d} active {" (`ta` for more):" if len(active) else ""}"""
+    )
     for _, task in active.iterrows():
         print(f"      {task.id:2d} {task.description}")
 
-    print("\n", run(["timew"], stderr=PIPE, stdout=PIPE, text=True).stdout, sep="")
+    print(
+        f"""
+{check_output(["timew"], text=True)}
+E-mails to process
+  {count[0]:3d} inbox
+  {count[1]:3d} list traffic
 
-    print("E-mails to process")
-    count = _count_mail()
-    print(f"  {count[0]:3d} inbox")
-    print(f"  {count[1]:3d} list traffic")
-
-    print("\nReferences to sort")
-    refspath = expanduser("~/Documents/reference/0sort")
-    print(f"  {len(glob(join(refspath, '*.pdf'))) - 2:3d} PDF documents")
-    print(f"  {len(glob(join(refspath, '*.bib'))) - 2:3d} BibTeX files")
-    print()
+References to sort
+  {len(glob(join(refspath, '*.pdf'))) - 2:3d} PDF documents
+  {len(glob(join(refspath, '*.bib'))) - 2:3d} BibTeX files
+"""
+    )
 
     # Print commands after the status
     formatter = ctx.make_formatter()
@@ -231,7 +233,7 @@ def status(ctx):
 def mail(action):
     """Start/stop timewarrior for Inbox 0."""
     # Detect current tracking
-    status = run("timew", stdout=PIPE, text=True).stdout
+    status = check_output(["timew"], text=True)
     current = re.match("Tracking (.*)", status)
     tracking = "Process e-mail" in current[1] if current else False
 
