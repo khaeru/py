@@ -14,10 +14,15 @@ import requests
 NO_VERSION = parse("0.0.0")
 
 
-def apt_name(name):
-    name = name.replace("sphinxcontrib-", "sphinxcontrib.")
-    name = name.replace("py-cpuinfo", "cpuinfo")
-    return f"python3-{name.lower()}"
+def apt_name(name: str) -> str:
+    """Return a candidate Ubuntu (apt) package name given a PyPI `name`."""
+    name = (
+        name.replace("sphinxcontrib-", "sphinxcontrib.")
+        .replace("py-cpuinfo", "cpuinfo")
+        .replace("_", "-")
+        .lower()
+    )
+    return f"python3-{name}"
 
 
 def apt_cache_policy(name):
@@ -122,7 +127,9 @@ def main(requirement, specs):
         apt_name(n) for n in sorted(actions["apt_install"])
     )
 
-    pip_cmd = "$ pip install \\\n  " + " \\\n  ".join(sorted(actions["pip_install"]))
+    pip_cmd = "$ pip install --upgrade \\\n  " + " \\\n  ".join(
+        sorted(actions["pip_install"])
+    )
 
     no_match = "FAILED to match: " + " ".join(sorted(actions["fail"]))
 
