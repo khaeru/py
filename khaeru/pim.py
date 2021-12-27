@@ -8,7 +8,7 @@ from subprocess import check_call, call, check_output, run, PIPE
 import click
 from xdg.BaseDirectory import xdg_config_home, xdg_data_home
 
-from .task.slack import get_tasks, main as slack
+from .task import client as task_client, show_slack
 
 
 CLAWS_CACHE = (
@@ -25,7 +25,16 @@ def cli(ctx):
         status()
 
 
-cli.add_command(click.Command("slack", callback=slack, help=slack.__doc__))
+cli.add_command(click.Command("slack", callback=show_slack, help=show_slack.__doc__))
+
+
+@cli.command()
+@click.argument("task_ids", metavar="IDS", nargs=-1)
+def slip(task_ids):
+    """Amount that task(s) IDS have been postponed."""
+    from .task import show_slip
+
+    show_slip(map(task_client.uuid, task_ids) if len(task_ids) else task_client.uuids())
 
 
 @cli.command("read")
