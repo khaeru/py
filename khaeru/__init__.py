@@ -1,3 +1,4 @@
+from importlib import import_module
 from pathlib import Path
 
 import click
@@ -48,6 +49,7 @@ def deps(name):
         raise click.ClickException(f"No submodule/dependencies for {name}")
 
 
-from . import music
-
-cli.add_command(music.cli)
+for name in ("music.cli", "obsidian.main", "prep_release.main"):
+    mod_name, cmd_name = name.rsplit(".", maxsplit=1)
+    module = import_module(f"khaeru.{mod_name}")
+    cli.add_command(getattr(module, cmd_name))
