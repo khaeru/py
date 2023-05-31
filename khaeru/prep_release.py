@@ -17,15 +17,16 @@ PATTERN = """Next release
 REPL = """.. Next release
 .. ============
 
-{version} ({date})
+{version}{date}
 {line}
 """
 
 
 @click.command("prep-release", help=__doc__)
+@click.option("--date/--no-date", "use_date", default=True)
 @click.option("--rc", "rc_number", type=int, default=1, help="Release candidate number")
 @click.argument("version", type=Version)
-def main(version, rc_number):
+def main(use_date, version, rc_number):
     # Round-trip through the "Version" type to ensure valid
     v = str(version)
     # With "v" prefix
@@ -56,8 +57,8 @@ def main(version, rc_number):
     text = p.read_text()
 
     # Comment the "Next version header", add a new one with the version and date
-    _date = date.today().isoformat()
-    repl = REPL.format(version=vv, date=_date, line="=" * (3 + len(vv + _date)))
+    _date = f" ({date.today().isoformat()})" if use_date else ""
+    repl = REPL.format(version=vv, date=_date, line="=" * len(vv + _date))
     modified = re.sub(PATTERN, repl, text)
     if modified == text:
         raise click.ClickException(
