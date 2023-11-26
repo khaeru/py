@@ -6,12 +6,14 @@ dynamic = ["version"]
 name = "khaeru"
 description = "Python miscellany & toolbox"
 authors = [
-  {name = "Paul Natsuo Kishimoto", email = "mail@paul.kishimoto.name"}
+  { name = "Paul Natsuo Kishimoto", email = "mail@paul.kishimoto.name" },
 ]
 readme = "README.rst"
 dependencies = [
-    "click",
-    "tqdm",
+  "click",
+  # All submodules whose CLI are imported/added to the top-level CLI
+  "khaeru[prep-release]",
+  "tqdm",
 ]
 
 [project.urls]
@@ -19,32 +21,22 @@ homepage = "https://github.com/khaeru/py"
 
 [project.optional-dependencies]
 all = [
-    "khaeru[disqus-export]",
-    "khaeru[git-all]",
-    "khaeru[pelican]",
-    "khaeru[prep-release]",
-    "khaeru[pim]",
-    "khaeru[rclone-push]",
-    "khaeru[task-slack]",
+  "khaeru[disqus-export]",
+  "khaeru[git-all]",
+  "khaeru[pelican]",
+  "khaeru[prep-release]",
+  "khaeru[pim]",
+  "khaeru[rclone-push]",
+  "khaeru[task-slack]",
 ]
-disqus-export = ["disqusapi"]
-git-all = [
-    "colorama",
-    "GitPython",
+disqus-export = [
+  # "disqusapi"
 ]
-pelican = [
-    "docutils",
-    "IPython",
-    "pelican",
-    "pybtex",
-    "sphinx",
-]
-prep-release = ["packaging"]
+git-all = ["colorama", "GitPython"]
+pelican = ["docutils", "IPython", "pelican", "pybtex", "sphinx"]
 pim = ["xdg"]
-rclone-push = [
-    "GitPython",
-    "PyYAML",
-]
+prep-release = ["GitPython", "packaging", "xdg-base-dirs"]
+rclone-push = ["GitPython", "PyYAML"]
 task-slack = ["pandas"]
 
 [project.scripts]
