@@ -26,6 +26,7 @@ FILTER = re.compile(
     "(%s)"
     % "|".join(
         [
+            r"\.cache",
             r"\.local/share/Trash",
             r"\.local/share/virtualenvs",
             "vc/other",
