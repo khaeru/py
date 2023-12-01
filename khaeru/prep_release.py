@@ -81,6 +81,6 @@ If necessary, undo with:
   git checkout main && git branch -D {head_name} && git tag -d {tag_name}
 
 or, push and create a pull request:
-  git push --tags --set-upstream {origin.name} {head_name} && gh pr create --web
-"""
+  git push --tags --set-upstream {origin.name} {head_name} && gh pr create --title="Release {vv}" --assignee=@me
+"""  # noqa: E501
     )
