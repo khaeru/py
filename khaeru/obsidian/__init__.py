@@ -1,24 +1,49 @@
-"""Tools for Obsidian notes."""
-# TODO Convert Zim "parent" pages to Obsidian Folder/0_README.md or similar
-# TODO Record steps for installing Zim as a Python package from GitHub
+"""Tools for Obsidian notes.
+
+This requires installing Zim via pip. To do this:
+
+\b
+1. Follow the Ubuntu / pip install instructions at
+   https://pygobject.readthedocs.io/en/latest/getting_started.html to install "gi".
+2. pip install --no-build-isolation \
+     zim @ git+https://github.com/zim-desktop-wiki/zim-desktop-wiki"
+"""
+# To undo while debugging, something like:
+# $ git ls-files --others --exclude-standard -z | xargs -0 rm
+#
+
+import filecmp
 import json
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Optional
 
 import click
 from xdg_base_dirs import xdg_config_home
 
-# TODO Write this to a temporary file instead of requiring it in the notebook/vault dir
+# Zim template
 TEMPLATE = """[% FOR page IN pages %]
 ---
-imported-from-zim: true
+zim-imported: true
+zim-creation-date: [% page.meta.get("Creation-Date") %]
 ---
 # [% page.title %]
 
 [% page.body %]
-[% END %]"""
+
+[% SET needs_attachments_header = True %]
+
+[% FOREACH a = page.attachments %]
+[% IF not a.basename.endswith(".md") %]
+[% IF needs_attachments_header %]
+## Attachments (imported from Zim)
+[% SET needs_attachments_header = False %]
+
+[% END %]
+![[[% a.basename %]]] [% END %][% END %]
+[% END %]
+"""
 
 
 @dataclass
@@ -41,13 +66,21 @@ class Config:
         vault = next(iter(self.config["vaults"].keys()))
         self.path = Path(self.config["vaults"][vault]["path"])
 
-        # Construct the Zim notebook
-        # Zim internals to access a Notebook object
+        # Write the template file
+        template_path = self.path.joinpath("Templates", "zim-import.md")
+        template_path.write_text(TEMPLATE)
+        self.template = str(template_path)
+
+        # Construct the Zim notebook object, imitating internals of zim.export
         from zim import notebook
 
         info = notebook.resolve_notebook(str(self.path))
         self.zim_notebook, _ = notebook.build_notebook(info)
         self.zim_notebook.index.check_and_update()
+
+        # Create a temporary directory for conversion
+        self._tmp_dir = TemporaryDirectory()
+        self.tmp = Path(self._tmp_dir.name)
 
     def zim_page(self, path):
         """Construct and return a Zim Page object."""
@@ -65,13 +98,8 @@ class Config:
         return zim_page, selection
 
 
-@click.group("obsidian", help=__doc__)
-@click.pass_context
-def main(ctx):
-    ctx.obj = Config()
-
-
 def is_zim_note(path: Path) -> bool:
+    """Return :obj:`True` if `path` is a Zim note file."""
     with open(path, "r") as f:
         return "Content-Type: text/x-zim-wiki" == next(f).strip()
 
@@ -97,54 +125,57 @@ def convert_single(config: Config, path: Path):
         print(f"No {zim_page = } for {path}; skip")
         return
 
-    # Path for the Obsidian page
-    output_path = path.parent.joinpath(path.name.replace("_", " ")).with_suffix(".md")
-    print(f"{path.relative_to(config.path)} → {output_path.relative_to(config.path)}")
-
-    template = config.path.joinpath("Templates", "zim-import.md")
-
-    exporter = build_page_exporter(
-        newfs.LocalFile(str(output_path)), "markdown", str(template), zim_page
-    )
-    if True:
-        exporter.export(selection)
-
-    # Tidy Obsidian files that are duplicated by Zim exporter
-
+    # Subdirectory for the Obsidian page
     obsidian_page_dir = path.with_suffix("")
-    obsidian_subpages = set(map(lambda p: p.name, obsidian_page_dir.glob("*.md")))
 
-    output_files_dir = output_path.parent.joinpath(f"{output_path.stem}_files")
+    # Path relative to the base directory
+    rel_path = path.relative_to(config.path)
 
-    if not output_files_dir.is_dir():
-        return
+    # Path for Zim export, within a temporary directory
+    output_path_zim = config.tmp.joinpath(rel_path).with_suffix(".md")
 
+    # Final output path, with replacements
+    output_path_final = config.path.joinpath(
+        *map(lambda part: part.replace("_", " "), rel_path.parts)
+    ).with_suffix(".md")
+
+    # String for displaying information about this conversion
+    msg = f"{path.relative_to(config.path)} → {output_path_zim}"
+
+    # Use Zim to convert the file to Markdown
+    output_path_zim.parent.mkdir(parents=True, exist_ok=True)
+    exporter = build_page_exporter(
+        newfs.LocalFile(str(output_path_zim)), "markdown", config.template, zim_page
+    )
+    exporter.export(selection)
+
+    # Assert that files duplicated by Zim exporter are not different from those
+    # remaining in the Zim tree
+    output_files_dir = output_path_zim.parent.joinpath(f"{output_path_zim.stem}_files")
     try:
-        N = 0
         for copied in output_files_dir.glob("*"):
-            if copied.name in obsidian_subpages:
-                N += 1
-                copied.unlink()
-            else:
-                print(f"Zim copied {copied}")
-        output_files_dir.rmdir()
-    except OSError:
-        print(
-            f"Zim copied {len(list(output_files_dir.glob('*')))} files to {output_files_dir}"
-        )
-    else:
-        # print(f"Unlinked {N} Obsidian pages copied by Zim")
-        pass
+            assert filecmp.cmp(
+                copied, obsidian_page_dir.joinpath(copied.name), shallow=True
+            )
+    except FileNotFoundError:
+        pass  # No output_files_dir
+
+    # Copy from zim.export output name to the preferred output name
+    output_path_zim.rename(output_path_final)
+
+    # Unlink the original Zim file
+    path.unlink()
+
+    del msg
 
 
-def convert_line(line: str) -> str:
-    # TODO use backreference
-    heading = re.compile("(?P<heading_depth>={1,6}) (.*) ={1,6}\n")
-    if match := heading.fullmatch(line):
-        hd = match.group("heading_depth")
-        line = ("#" * (7 - len(hd))) + f" {match.group(2)}"
+# Command-line interface
 
-    return line
+
+@click.group("obsidian", help=__doc__)
+@click.pass_context
+def main(ctx):
+    ctx.obj = Config()
 
 
 @main.command("from-zim")
