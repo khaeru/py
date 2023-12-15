@@ -6,7 +6,7 @@
 
 Everything that doesn't fit somewhere else.
 
-© 2010–2021 Paul Natsuo Kishimoto <`mail@paul.kishimoto.name <mailto:mail@paul.kishimoto.name>`_>.
+© 2010–2023 Paul Natsuo Kishimoto <`mail@paul.kishimoto.name <mailto:mail@paul.kishimoto.name>`_>.
 
 Licensed under the GNU General Public License, version 3.0 or later.
 
