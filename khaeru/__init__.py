@@ -49,7 +49,12 @@ def deps(name):
         raise click.ClickException(f"No submodule/dependencies for {name}")
 
 
-for name in ("music.cli", "obsidian.main", "prep_release.main"):
+for name in (
+    "bugwarrior.main",
+    "music.cli",
+    "obsidian.main",
+    "prep_release.main",
+):
     mod_name, cmd_name = name.rsplit(".", maxsplit=1)
     module = import_module(f"khaeru.{mod_name}")
     cli.add_command(getattr(module, cmd_name))
