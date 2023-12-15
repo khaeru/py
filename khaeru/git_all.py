@@ -1,19 +1,16 @@
 """Display information about unclean Git repositories under $HOME.
 
-By default, repositories with paths matching the following regular expression
-are ignored:
-
-«{}»
+By default, some repositories are ignored.
 """
 import argparse
 import os
-import re
+from pathlib import Path
 
 from colorama import Fore as fg
 from git import Repo
 from git.exc import GitCommandError
 
-HOME = os.path.expanduser("~")
+HOME = Path("~").expanduser()
 
 COLORS = {
     "A": fg.RED,
@@ -22,22 +19,15 @@ COLORS = {
     "R": fg.CYAN,
 }
 
-FILTER = re.compile(
-    "(%s)"
-    % "|".join(
-        [
-            r"\.cache",
-            r"\.local/share/Trash",
-            r"\.local/share/virtualenvs",
-            "vc/other",
-            "vc/dotfiles/atom/packages",
-        ]
-    )
-)
+IGNORE = [
+    HOME / ".cache",
+    HOME / ".local" / "share" / "Trash",
+    HOME / "vc" / "other",
+]
 
 
 # Parse simple arguments
-parser = argparse.ArgumentParser(description=__doc__.format(FILTER.pattern))
+parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument(
     "--fetch", action="store_true", help="fetch remotes for comparison (slow)"
 )
@@ -52,6 +42,8 @@ args = parser.parse_args()
 
 def find_repos():
     for dirpath, dirnames, _ in os.walk(HOME):
+        if any(Path(dirpath).is_relative_to(p) for p in IGNORE):
+            continue
         if ".git" in dirnames:
             yield Repo(dirpath)
 
@@ -60,12 +52,17 @@ def diff_lines(name, diffs):
     if len(diffs) == 0:
         return
 
-    print("  %s" % name)
+    print(f"  {name}")
 
-    for d in diffs:
-        path = d.a_path
-        color = COLORS[d.change_type[0]]
-        print(color + "    %s" % path + fg.RESET)
+    for i, d in enumerate(diffs):
+        if i == 0:
+            print(COLORS[d.change_type[0]], end="")
+        if i < 3:
+            print(f"    {d.a_path}")
+        else:
+            print(f"    … {len(diffs) - 3} more")
+            break
+    print(fg.RESET, end="")
 
 
 def plural(num):
@@ -76,7 +73,7 @@ def main():
     clean = 0
 
     for repo in find_repos():
-        quiet = FILTER.search(repo.working_dir) and not args.verbose
+        quiet = False  # not args.verbose
 
         # Optionally fetch remotes
         if args.fetch and not quiet:
@@ -106,7 +103,7 @@ def main():
 
         if dirty or (ahead_or_behind and not quiet):
             # Identify the repository ahead of other information that may follow
-            print("\n~%s (%s)" % (repo.working_dir[len(HOME) :], branch))
+            print("\n~%s (%s)" % (repo.working_dir[len(str(HOME)) :], branch))
 
             if quiet:
                 # A filtered repo, and we're not being verbose
@@ -131,9 +128,14 @@ def main():
 
         # Untracked files
         untracked = repo.untracked_files
-        if len(untracked) > 20:
-            print("  (%d untracked files not listed)" % len(untracked))
-        elif len(untracked) > 0:
-            print("    " + fg.GREEN + "\n    ".join(untracked) + fg.RESET)
+        for i, p in enumerate(repo.untracked_files):
+            if i == 0:
+                print(fg.GREEN, end="")
+            if i < 3:
+                print(f"    {p}")
+            else:
+                print(f"    … {len(untracked) - 3} more")
+                break
+        print(fg.RESET, end="")
 
     print("\n%d other clean & synced repositories\n" % clean)
